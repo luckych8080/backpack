@@ -2,13 +2,11 @@ import type { Blockchain } from "@coral-xyz/common";
 import type { BottomSheetBackdropProps } from "@gorhom/bottom-sheet";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
+import { UI_RPC_METHOD_KEYRING_DERIVE_WALLET } from "@coral-xyz/common";
 import {
-  UI_RPC_METHOD_KEYRING_ACTIVE_WALLET_UPDATE,
-  UI_RPC_METHOD_KEYRING_DERIVE_WALLET,
-} from "@coral-xyz/common";
-import {
+  useActiveWallet,
   useBackgroundClient,
   useKeyringHasMnemonic,
   useWalletName,
@@ -16,7 +14,6 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { BottomSheetModal, BottomSheetBackdrop } from "@gorhom/bottom-sheet";
 import { useNavigation } from "@react-navigation/native";
-import { WalletListItem } from "~screens/Unlocked/EditWalletsScreen";
 
 import { CheckIcon } from "~components/Icon";
 import {
@@ -28,9 +25,13 @@ import {
   RoundedContainerGroup,
 } from "~components/index";
 import { useTheme } from "~hooks/useTheme";
+import { WalletListItem } from "~screens/Unlocked/EditWalletsScreen";
 
-export function AddConnectWalletScreen({ route }) {
-  const { blockchain } = route.params;
+import { useSession } from "~src/lib/SessionProvider";
+
+export function AddConnectWalletScreen() {
+  const { setActiveWallet } = useSession();
+  const { blockchain } = useActiveWallet();
   const navigation = useNavigation();
   const background = useBackgroundClient();
   const hasMnemonic = useKeyringHasMnemonic();
@@ -42,7 +43,6 @@ export function AddConnectWalletScreen({ route }) {
   const modalHeight = 240;
 
   const handleOpenModal = () => bottomSheetModalRef.current?.present();
-  const handleDismissModal = () => bottomSheetModalRef.current?.dismiss();
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
@@ -85,10 +85,7 @@ export function AddConnectWalletScreen({ route }) {
                   params: [blockchain],
                 });
 
-                await background.request({
-                  method: UI_RPC_METHOD_KEYRING_ACTIVE_WALLET_UPDATE,
-                  params: [newPubkey, blockchain],
-                });
+                await setActiveWallet({ blockchain, publicKey: newPubkey });
 
                 setNewPublicKey(newPubkey);
                 handleOpenModal();

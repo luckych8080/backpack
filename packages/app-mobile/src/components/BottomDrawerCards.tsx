@@ -10,6 +10,7 @@ import {
   useBlockchainConnectionUrl,
   useBlockchainExplorer,
 } from "@coral-xyz/recoil";
+import { Box } from "@coral-xyz/tamagui";
 
 import { CheckIcon, CrossIcon } from "~components/Icon";
 import {
@@ -33,7 +34,7 @@ export function Container({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
   },
 });
 
@@ -141,11 +142,16 @@ export function Sending({
               <Margin top={8}>
                 <PrimaryButton
                   label="Close"
+                  // Uncomment when tabs are back
+                  // onPress={() => {
+                  //   navigation.reset({
+                  //     index: 0,
+                  //     routes: [{ name: "Tabs" }],
+                  //   });
+                  // }}
                   onPress={() => {
-                    navigation.reset({
-                      index: 0,
-                      routes: [{ name: "Tabs" }],
-                    });
+                    navigation.popToTop();
+                    navigation.goBack(null);
                   }}
                 />
               </Margin>
@@ -178,7 +184,9 @@ export function Error({
       <IconContainer>
         <CrossIcon />
       </IconContainer>
-      <Text style={{ color: theme.custom.colors.fontColor }}>{error}</Text>
+      <Box mb={16}>
+        <Text style={{ color: theme.custom.colors.fontColor }}>{error}</Text>
+      </Box>
       {explorer && connectionUrl && signature ? (
         <SecondaryButton
           label="View Explorer"
@@ -187,7 +195,9 @@ export function Error({
           }}
         />
       ) : null}
-      <PrimaryButton label="Retry" onPress={() => onRetry()} />
+      <Box mt={4}>
+        <PrimaryButton label="Retry" onPress={() => onRetry()} />
+      </Box>
     </Container>
   );
 }

@@ -23,17 +23,13 @@ import {
 } from "@coral-xyz/react-common";
 import type { TokenDataWithPrice } from "@coral-xyz/recoil";
 import {
-  blockchainTokenData,
-  useActiveWallet,
   useAnchorContext,
   useBlockchainConnectionUrl,
   useBlockchainExplorer,
-  useBlockchainTokenAccount,
   useDarkMode,
   useEthereumCtx,
   useFriendship,
   useIsValidAddress,
-  useLoader,
   useUser,
 } from "@coral-xyz/recoil";
 import { styles as makeStyles, useCustomTheme } from "@coral-xyz/themes";
@@ -49,7 +45,6 @@ import { TokenInputField } from "../../../common/TokenInput";
 
 import { SendEthereumConfirmationCard } from "./Ethereum";
 import { SendSolanaConfirmationCard } from "./Solana";
-import { WithHeaderButton } from "./Token";
 
 export const useStyles = makeStyles((theme) => ({
   topImage: {
@@ -86,72 +81,6 @@ export const useStyles = makeStyles((theme) => ({
   },
 }));
 
-export function SendButton({
-  publicKey,
-  blockchain,
-  address,
-}: {
-  blockchain: Blockchain;
-  address: string;
-  publicKey: string;
-}) {
-  // publicKey should only be undefined if the user is in single-wallet mode
-  // (rather than aggregate mode).
-  const activeWallet = useActiveWallet();
-  publicKey = publicKey ?? activeWallet.publicKey;
-
-  const token = useBlockchainTokenAccount({
-    publicKey,
-    blockchain,
-    tokenAddress: address,
-  });
-
-  return (
-    <WithHeaderButton
-      label="Send"
-      routes={[
-        {
-          name: "send",
-          component: (props: any) => <SendLoader {...props} />,
-          title: `${token?.ticker || ""} / Send`,
-          props: {
-            blockchain,
-            address,
-            publicKey,
-          },
-        },
-      ]}
-    />
-  );
-}
-
-export function SendLoader({
-  publicKey,
-  blockchain,
-  address,
-}: {
-  publicKey?: string;
-  blockchain: Blockchain;
-  address: string;
-}) {
-  // publicKey should only be undefined if the user is in single-wallet mode
-  // (rather than aggregate mode).
-  const activeWallet = useActiveWallet();
-  const publicKeyStr = publicKey ?? activeWallet.publicKey;
-
-  const [token] = useLoader(
-    blockchainTokenData({
-      publicKey: publicKeyStr,
-      blockchain,
-      tokenAddress: address,
-    }),
-    null
-  );
-
-  if (!token) return null;
-  return <Send blockchain={blockchain} token={token} />;
-}
-
 export function Send({
   blockchain,
   token,
@@ -176,6 +105,7 @@ export function Send({
   const [openDrawer, setOpenDrawer] = useState(false);
   const [address, setAddress] = useState(to?.address || "");
   const [amount, setAmount] = useState<BigNumber | null>(null);
+  const [strAmount, setStrAmount] = useState("");
   const [feeOffset, setFeeOffset] = useState(BigNumber.from(0));
   const [message, setMessage] = useState("");
   const friendship = useFriendship({ userId: to?.uuid || "" });
@@ -292,6 +222,7 @@ export function Send({
           setMessage={setMessage}
           sendButton={sendButton}
           amount={amount}
+          strAmount={strAmount}
           token={token}
           blockchain={blockchain}
           isAmountError={isAmountError}
@@ -299,11 +230,18 @@ export function Send({
           maxAmount={maxAmount}
           setAddress={setAddress}
           setAmount={setAmount}
+          setStrAmount={setStrAmount}
         />
       ) : null}
       <ApproveTransactionDrawer
         openDrawer={openDrawer}
-        setOpenDrawer={setOpenDrawer}
+        setOpenDrawer={(val) => {
+          if (!val) {
+            setAmount(BigNumber.from(0));
+            setStrAmount("");
+          }
+          setOpenDrawer(val);
+        }}
       >
         <SendConfirmComponent
           onComplete={async () => {
@@ -461,12 +399,18 @@ const buttonContainerStyles = StyleSheet.create({
   },
 });
 
-function SendV2({ token, maxAmount, setAmount, sendButton, to }: any) {
+function SendV2({
+  token,
+  maxAmount,
+  setAmount,
+  strAmount,
+  setStrAmount,
+  sendButton,
+  to,
+}: any) {
   const classes = useStyles();
   const theme = useCustomTheme();
   const isDarkMode = useDarkMode();
-  // eslint-disable-next-line react/hook-use-state
-  const [_amount, _setAmount] = useState<string>("");
 
   return (
     <>
@@ -529,28 +473,43 @@ function SendV2({ token, maxAmount, setAmount, sendButton, to }: any) {
                 // @ts-ignore
                 fontFamily: theme.typography.fontFamily,
               }}
-              value={_amount}
+              value={strAmount}
               onChange={({
                 target: { value },
               }: ChangeEvent<HTMLInputElement>) => {
                 try {
-                  const parsedVal =
-                    value.length === 1 && value[0] === "." ? "0." : value;
+                  const maxDecimals = token.decimals ?? 9;
 
-                  _setAmount(parsedVal);
-
-                  const num =
-                    parsedVal === "" || parsedVal === "0."
-                      ? 0.0
-                      : parseFloat(parsedVal);
-
-                  if (num >= 0) {
-                    setAmount(
-                      ethers.utils.parseUnits(num.toString(), token.decimals)
+                  const parsedVal = value
+                    // remove all characters except for 0-9 and .
+                    .replace(/[^\d.]/g, "")
+                    // prepend a 0 if . is the first character
+                    .replace(/^\.(\d+)?$/, "0.$1")
+                    // remove any periods after the first one
+                    .replace(/^(\d+\.\d*?)\./, "$1")
+                    // trim to the number of decimals allowed for the token
+                    .replace(
+                      new RegExp(`^(\\d+\\.\\d{${maxDecimals}}).+`),
+                      "$1"
                     );
+
+                  if (!Number.isFinite(Number(parsedVal))) return;
+
+                  setStrAmount(parsedVal);
+
+                  if (parsedVal.endsWith(".")) {
+                    // can't `throw new Error("trailing")` due to Error function
+                    throw "trailing .";
                   }
+
+                  const finalAmount = ethers.utils.parseUnits(
+                    parsedVal,
+                    maxDecimals
+                  );
+
+                  setAmount(finalAmount.isZero() ? null : finalAmount);
                 } catch (err) {
-                  // Do nothing.
+                  setAmount(null);
                 }
               }}
             />
@@ -596,7 +555,7 @@ function SendV2({ token, maxAmount, setAmount, sendButton, to }: any) {
               }}
               onClick={() => {
                 const a = toDisplayBalance(maxAmount, token.decimals);
-                _setAmount(a);
+                setStrAmount(a);
                 setAmount(maxAmount);
               }}
             >

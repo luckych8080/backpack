@@ -10,6 +10,7 @@ node_modules
 
 # production
 build/
+web-build/
 
 # misc
 .DS_Store
@@ -29,7 +30,6 @@ dist/
 .turbo
 .env
 .idea
-deptool-report.html
 test-ledger/
 
 .expo
@@ -56,3 +56,6 @@ test-ledger/
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Local Netlify folder
+.netlify

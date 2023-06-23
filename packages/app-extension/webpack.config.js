@@ -6,6 +6,7 @@ const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const path = require("path");
 const ReactRefreshWebpackPlugin = require("@pmmmwh/react-refresh-webpack-plugin");
 const fs = require("fs");
+const { browserslist, description, version } = require("./package.json");
 
 const NODE_ENV = process.env.NODE_ENV || "development";
 const EXTENSION_NAME =
@@ -47,7 +48,7 @@ const swcLoaderConfiguration = {
     options: {
       // parseMap: true, // required when using with babel-loader
       env: {
-        targets: require("./package.json").browserslist,
+        targets: browserslist,
       },
       sourceMap: isDevelopment,
       jsc: {
@@ -68,13 +69,13 @@ const swcLoaderConfiguration = {
   },
 };
 
-const tamaguiLoaderConfiguration = {
-  loader: "tamagui-loader",
-  options: {
-    config: "./tamagui.config.ts",
-    components: ["@coral-xyz/tamagui", "tamagui"],
-  },
-};
+// const tamaguiLoaderConfiguration = {
+//   loader: "tamagui-loader",
+//   options: {
+//     config: "./tamagui.config.ts",
+//     components: ["@coral-xyz/tamagui", "tamagui"],
+//   },
+// };
 
 const fileExtensions = [
   "eot",
@@ -144,6 +145,7 @@ const options = {
     options: "./src/options/index.tsx",
     permissions: "./src/permissions/index.tsx",
     popup: "./src/index.tsx",
+    warning: "./src/warning.ts",
     contentScript: "./src/contentScript/index.ts",
     // injected: "../provider-injection/dist/browser/index.js",
   },
@@ -204,6 +206,10 @@ const options = {
     },
     // Add support for web-based extensions so we can share code between mobile/extension
     extensions: [
+      "!.native.tsx",
+      "!.native.ts",
+      "!.native.js",
+      "!.native.jsx",
       ".web.js",
       ".web.jsx",
       ".web.ts",
@@ -215,10 +221,13 @@ const options = {
       buffer: require.resolve("buffer/"), // trailing slash is intentional
       crypto: require.resolve("crypto-browserify"),
       stream: require.resolve("stream-browserify"),
+      path: require.resolve("path-browserify"),
+      zlib: require.resolve("browserify-zlib"),
     },
   },
   plugins: [
     new DefinePlugin({
+      __DEV__: NODE_ENV === "development" ? "true" : "false",
       process: {
         env: {
           __DEV__: NODE_ENV === "development" ? "true" : "false",
@@ -243,12 +252,12 @@ const options = {
         {
           from: "src/manifest.json",
           force: true,
-          transform: function (content, path) {
+          transform: function (content) {
             return Buffer.from(
               JSON.stringify(
                 {
-                  description: process.env.npm_package_description,
-                  version: process.env.npm_package_version,
+                  description,
+                  version,
                   name: EXTENSION_NAME,
                   ...JSON.parse(content.toString()),
                 },

@@ -1,288 +1,276 @@
-import type { Connection } from "@solana/web3.js";
 import type { BigNumber } from "ethers";
 
-import { useState } from "react";
-import { View, Text } from "react-native";
+import { memo, Suspense } from "react";
+import { ActivityIndicator, Image, Text } from "react-native";
 
-import { programs, tryGetAccount } from "@cardinal/token-manager";
+import { Blockchain } from "@coral-xyz/common";
 import {
-  Blockchain,
-  confirmTransaction,
-  SOL_NATIVE_MINT,
-  Solana,
-  walletAddressDisplay,
-  metadataAddress,
-} from "@coral-xyz/common";
-import { useSolanaCtx } from "@coral-xyz/recoil";
-import {
-  Metadata,
-  TokenStandard,
-} from "@metaplex-foundation/mpl-token-metadata";
-import { PublicKey } from "@solana/web3.js";
+  SolTransactionStep,
+  useSolanaTransaction,
+  useUser,
+} from "@coral-xyz/recoil";
+import { YStack } from "@coral-xyz/tamagui";
+import { ErrorBoundary } from "react-error-boundary";
 
 import {
-  Error,
-  Sending,
-  Header,
   Container,
+  Error,
+  Header,
+  Sending,
 } from "~components/BottomDrawerCards";
-import { Margin, PrimaryButton, TokenAmountHeader } from "~components/index";
-import { useTheme } from "~hooks/useTheme";
-import { SettingsList } from "~screens/Unlocked/Settings/components/SettingsMenuList";
+import { Table } from "~components/Table";
+import {
+  AvatarUserNameAddress,
+  CurrentUserAvatarWalletNameAddress,
+  Margin,
+  PrimaryButton,
+  TokenAmountHeader,
+  WalletAddressLabel,
+} from "~components/index";
 
-type Step = "confirm" | "sending" | "complete" | "error";
+type TokenTypeFungible = {
+  address: string;
+  logo?: string;
+  mint?: string;
+  tokenId?: string;
+  ticker?: string;
+  decimals: number;
+};
 
-export function SendSolanaConfirmationCard({
-  navigation,
+export type TokenTypeCollectible = {
+  address: string;
+  image: string;
+  mint: string;
+};
+
+export type Destination = {
+  address: string;
+  walletName?: string;
+  username?: string;
+  image?: string;
+  uuid?: string;
+};
+
+function ConfirmToken({
+  destination,
   token,
-  destinationAddress,
-  amount,
-  onCompleteStep,
-}: {
-  navigation: any;
-  token: {
-    address: string;
-    logo: string;
-    decimals: number;
-    tokenId?: string;
-    mint?: string;
-  };
-  destinationAddress: string;
-  amount: BigNumber;
-  onCompleteStep?: (step: Step) => void;
-}): JSX.Element {
-  const [txSignature, setTxSignature] = useState<string | null>(null);
-  const solanaCtx = useSolanaCtx();
-  const [error, setError] = useState(
-    "Error 422. Transaction time out. Runtime error. Reticulating splines."
-  );
-  const [cardType, setCardType] = useState<Step>("confirm");
-
-  const handleChangeStep = (step: Step) => {
-    setCardType(step);
-    if (onCompleteStep) {
-      onCompleteStep(step);
-    }
-  };
-
-  const onConfirm = async () => {
-    handleChangeStep("sending");
-    //
-    // Send the tx.
-    //
-    let txSig;
-    try {
-      if (token.mint === SOL_NATIVE_MINT.toString()) {
-        txSig = await Solana.transferSol(solanaCtx, {
-          source: solanaCtx.walletPublicKey,
-          destination: new PublicKey(destinationAddress),
-          amount: amount.toNumber(),
-        });
-      } else if (
-        await isCardinalWrappedToken(
-          solanaCtx.connection,
-          token.mint?.toString() as string
-        )
-      ) {
-        txSig = await Solana.transferCardinalToken(solanaCtx, {
-          destination: new PublicKey(destinationAddress),
-          mint: new PublicKey(token.mint!),
-          amount: amount.toNumber(),
-          decimals: token.decimals,
-        });
-      } else if (
-        await isProgrammableNftToken(
-          solanaCtx.connection,
-          token.mint?.toString() as string
-        )
-      ) {
-        txSig = await Solana.transferProgrammableNft(solanaCtx, {
-          destination: new PublicKey(destinationAddress),
-          mint: new PublicKey(token.mint!),
-          amount: amount.toNumber(),
-          decimals: token.decimals,
-        });
-      } else {
-        txSig = await Solana.transferToken(solanaCtx, {
-          destination: new PublicKey(destinationAddress),
-          mint: new PublicKey(token.mint!),
-          amount: amount.toNumber(),
-          decimals: token.decimals,
-        });
-      }
-    } catch (err: any) {
-      setError(err.toString());
-      handleChangeStep("error");
-      return;
-    }
-
-    setTxSignature(txSig);
-
-    //
-    // Confirm the tx.
-    //
-    try {
-      await confirmTransaction(
-        solanaCtx.connection,
-        txSig,
-        solanaCtx.commitment !== "confirmed" &&
-          solanaCtx.commitment !== "finalized"
-          ? "confirmed"
-          : solanaCtx.commitment
-      );
-      handleChangeStep("complete");
-    } catch (err: any) {
-      setError(err.toString());
-      handleChangeStep("error");
-    }
-  };
-
-  return (
-    <>
-      {cardType === "confirm" ? (
-        <ConfirmSendSolana
-          token={token}
-          destinationAddress={destinationAddress}
-          amount={amount}
-          onConfirm={onConfirm}
-        />
-      ) : cardType === "sending" ? (
-        <Sending
-          navigation={navigation}
-          blockchain={Blockchain.SOLANA}
-          isComplete={false}
-          amount={amount}
-          token={token}
-          signature={txSignature!}
-        />
-      ) : cardType === "complete" ? (
-        <Sending
-          navigation={navigation}
-          blockchain={Blockchain.SOLANA}
-          isComplete
-          amount={amount}
-          token={token}
-          signature={txSignature!}
-        />
-      ) : (
-        <Error
-          blockchain={Blockchain.SOLANA}
-          signature={txSignature!}
-          onRetry={onConfirm}
-          error={error}
-        />
-      )}
-    </>
-  );
-}
-
-export function ConfirmSendSolana({
-  token,
-  destinationAddress,
   amount,
   onConfirm,
 }: {
-  token: {
-    logo?: string;
-    ticker?: string;
-    decimals: number;
-  };
-  destinationAddress: string;
+  destination: Destination;
+  token: TokenTypeFungible;
   amount: BigNumber;
   onConfirm: () => void;
 }) {
+  const user = useUser();
+
+  const title =
+    destination.username === user.username
+      ? "Send to your wallet"
+      : `Send to ${destination.username}`;
+
+  const destinationLabel = (destination.walletName ||
+    destination.username) as string;
+
   return (
     <Container>
-      <Header text="Review Send" />
-      <Margin vertical={24}>
+      <Header text={title} />
+      <YStack space={16} my={12}>
         <TokenAmountHeader amount={amount} token={token} />
-      </Margin>
-      <Margin bottom={24}>
-        <ConfirmSendSolanaTable destinationAddress={destinationAddress} />
-      </Margin>
-      <PrimaryButton onPress={() => onConfirm()} label="Send" />
+        <Breakdown
+          address={destination.address}
+          username={destinationLabel}
+          avatarUrl={destination.image}
+        />
+      </YStack>
+      <PrimaryButton label="Send" onPress={onConfirm} />
     </Container>
   );
 }
 
-const ConfirmSendSolanaTable: React.FC<{
-  destinationAddress: string;
-}> = ({ destinationAddress }) => {
-  const theme = useTheme();
-  const solanaCtx = useSolanaCtx();
+function ConfirmCollectible({
+  destination,
+  nft,
+  onConfirm,
+}: {
+  destination: Destination;
+  nft: TokenTypeCollectible;
+  onConfirm: () => void;
+}) {
+  const user = useUser();
+
+  const title =
+    destination.username === user.username
+      ? "Send to your wallet"
+      : `Send to ${destination.username}`;
+
+  const destinationLabel = (destination.walletName ||
+    destination.username) as string;
+
+  return (
+    <Container>
+      <Header text={title} />
+      <Margin vertical={24}>
+        <Image
+          source={{ uri: nft.image }}
+          style={{
+            alignSelf: "center",
+            width: 128,
+            height: 128,
+            borderRadius: 12,
+          }}
+        />
+      </Margin>
+      <Margin bottom={24}>
+        <Breakdown
+          address={destination.address}
+          username={destinationLabel}
+          avatarUrl={destination.image}
+        />
+      </Margin>
+      <PrimaryButton label="Send" onPress={onConfirm} />
+    </Container>
+  );
+}
+
+function Confirmation({
+  type,
+  destination,
+  amount,
+  onConfirm,
+  token,
+}: {
+  type: "nft" | "token";
+  destination: Destination;
+  amount: BigNumber;
+  onConfirm: () => void;
+  token: TokenTypeFungible | TokenTypeCollectible;
+}) {
+  if (type === "nft") {
+    return (
+      <ConfirmCollectible
+        nft={token as TokenTypeCollectible}
+        destination={destination}
+        onConfirm={onConfirm}
+      />
+    );
+  }
+
+  return (
+    <ConfirmToken
+      token={token as TokenTypeFungible}
+      amount={amount}
+      destination={destination}
+      onConfirm={onConfirm}
+    />
+  );
+}
+
+const Breakdown = memo(function Breakdown({
+  username,
+  avatarUrl,
+  address,
+  networkFee = "0.0000005",
+}: {
+  address: string;
+  username?: string;
+  avatarUrl?: string;
+  networkFee?: string;
+}): JSX.Element {
+  const feeValue = `${networkFee} SOL`;
 
   const menuItems = {
     From: {
-      disabled: true,
-      onPress: () => {},
-      detail: <Text>{walletAddressDisplay(solanaCtx.walletPublicKey)}</Text>,
+      label: "From",
+      children: <CurrentUserAvatarWalletNameAddress />,
     },
     To: {
-      disabled: true,
-      onPress: () => {},
-      detail: <Text>{walletAddressDisplay(destinationAddress)}</Text>,
+      label: "To",
+      children:
+        // public keys w/o users are supported
+        // username can also be wallet name here
+        // consider renaming username to name or label
+        username && avatarUrl ? (
+          <AvatarUserNameAddress
+            username={username}
+            avatarUrl={avatarUrl}
+            publicKey={address}
+          />
+        ) : (
+          <WalletAddressLabel publicKey={address} />
+        ),
     },
-    "Network fee": {
-      disabled: true,
-      onPress: () => {},
-      detail: (
-        <Text>
-          <Text>0.000005</Text>
-          <Text style={{ color: theme.custom.colors.secondary }}>SOL</Text>
-        </Text>
-      ),
+    NetworkFee: {
+      label: "Network fee",
+      value: feeValue,
     },
   };
 
+  return <Table menuItems={menuItems} />;
+});
+
+export function SendSolanaConfirmationCard({
+  type,
+  navigation,
+  token,
+  amount,
+  destination,
+  onCompleteStep,
+}: {
+  type: "nft" | "token";
+  navigation: any;
+  token: TokenTypeFungible | TokenTypeCollectible;
+  amount: BigNumber;
+  destination: Destination;
+  onCompleteStep?: (step: SolTransactionStep) => void;
+}): JSX.Element {
+  const { txSignature, onConfirm, cardType, error } = useSolanaTransaction({
+    token,
+    destinationAddress: destination.address,
+    amount,
+    onComplete: () => {
+      onCompleteStep?.(cardType);
+    },
+  });
+
   return (
-    <SettingsList
-      borderColor={theme.custom.colors.approveTransactionTableBackground}
-      menuItems={menuItems}
-    />
+    <ErrorBoundary fallbackRender={({ error }) => <Text>{error.message}</Text>}>
+      <Suspense fallback={<ActivityIndicator />}>
+        {cardType === "confirm" ? (
+          <Confirmation
+            type={type}
+            destination={destination}
+            token={token}
+            amount={amount}
+            onConfirm={onConfirm}
+          />
+        ) : cardType === "sending" ? (
+          <Sending
+            navigation={navigation}
+            blockchain={Blockchain.SOLANA}
+            isComplete={false}
+            amount={amount}
+            token={token}
+            signature={txSignature!}
+          />
+        ) : cardType === "complete" ? (
+          <Sending
+            navigation={navigation}
+            blockchain={Blockchain.SOLANA}
+            isComplete
+            amount={amount}
+            token={token}
+            signature={txSignature!}
+          />
+        ) : (
+          <Error
+            blockchain={Blockchain.SOLANA}
+            signature={txSignature!}
+            onRetry={onConfirm}
+            error={error}
+          />
+        )}
+      </Suspense>
+    </ErrorBoundary>
   );
-};
-
-// TODO(peter) share between mobile/extension
-const isCardinalWrappedToken = async (
-  connection: Connection,
-  tokenAddress: string
-) => {
-  const [tokenManagerId] =
-    await programs.tokenManager.pda.findTokenManagerAddress(
-      new PublicKey(tokenAddress)
-    );
-  const tokenManagerData = await tryGetAccount(() =>
-    programs.tokenManager.accounts.getTokenManager(connection, tokenManagerId)
-  );
-  if (tokenManagerData?.parsed && tokenManagerData?.parsed.transferAuthority) {
-    try {
-      programs.transferAuthority.accounts.getTransferAuthority(
-        connection,
-        tokenManagerData?.parsed.transferAuthority
-      );
-      return true;
-    } catch (error) {
-      console.error(error);
-      console.log("Invalid transfer authority");
-    }
-  }
-  return false;
-};
-
-const isProgrammableNftToken = async (
-  connection: Connection,
-  mintAddress: string
-) => {
-  try {
-    const metadata = await Metadata.fromAccountAddress(
-      connection,
-      await metadataAddress(new PublicKey(mintAddress))
-    );
-
-    return metadata.tokenStandard == TokenStandard.ProgrammableNonFungible;
-  } catch (error) {
-    // most likely this happens if the metadata account does not exist
-    console.log(error);
-    return false;
-  }
-};
+}

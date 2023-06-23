@@ -58,6 +58,7 @@ import {
   withContextPort,
 } from "@coral-xyz/common";
 import type { SendOptions } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 
 import type { Backend } from "../backend/core";
 import { SUCCESS_RESPONSE } from "../backend/core";
@@ -70,6 +71,7 @@ const whitelistedOrigins = [
   /^https:\/\/one-nft\.vercel\.app$/,
   /^https:\/\/xnft\.wao\.gg$/,
   /^https:\/\/one\.xnfts\.dev$/,
+  /^https:\/\/madlads\.com$/,
   /^https:\/\/rafffle\.famousfoxes\.com$/,
 ];
 
@@ -586,6 +588,13 @@ async function handleSolanaOpenXnft(
   ctx: Context<Backend>,
   xnftAddress: string
 ): Promise<RpcResponse<string>> {
+  // Validate the xnftAddress.
+  try {
+    new PublicKey(xnftAddress);
+  } catch (err) {
+    throw new Error("invalid xnft address");
+  }
+
   const url = `xnft/${xnftAddress}`;
   await ctx.backend.navigationPush(url, TAB_XNFT);
   await openPopupWindow(`popup.html`);
@@ -677,7 +686,7 @@ async function handleEthereumSignAndSendTx(
   }
 
   let resp: RpcResponse<string>;
-  // The transaction may be modified and returned as result to accomodate user
+  // The transaction may be modified and returned as result to accommodate user
   // tweaked gas settings/nonce.
   const { didApprove, transaction } = uiResp.result;
   try {
@@ -731,7 +740,7 @@ async function handleEthereumSignTx(
   }
 
   let resp: RpcResponse<string>;
-  // The transaction may be modified and returned as result to accomodate user
+  // The transaction may be modified and returned as result to accommodate user
   // tweaked gas settings/nonce.
   const { didApprove } = uiResp.result;
 

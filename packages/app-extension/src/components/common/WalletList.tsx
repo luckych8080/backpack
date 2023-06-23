@@ -3,14 +3,15 @@
 import React, { useContext, useEffect, useState } from "react";
 import {
   Blockchain,
+  formatWalletAddress,
   UI_RPC_METHOD_KEYRING_ACTIVE_WALLET_UPDATE,
-  walletAddressDisplay,
 } from "@coral-xyz/common";
 import {
   HardwareIcon,
   List,
   ListItem,
   MnemonicIcon,
+  ProxyImage,
   SecretKeyIcon,
 } from "@coral-xyz/react-common";
 import {
@@ -48,7 +49,10 @@ import {
   CreateOrImportMnemonic,
 } from "../Unlocked/Settings/AddConnectWallet/CreateMnemonic";
 import { ImportMenu } from "../Unlocked/Settings/AddConnectWallet/ImportMenu";
-import { ImportMnemonic } from "../Unlocked/Settings/AddConnectWallet/ImportMnemonic";
+import {
+  ImportMnemonic,
+  ImportMnemonicAutomatic,
+} from "../Unlocked/Settings/AddConnectWallet/ImportMnemonic";
 import { ImportSecretKey } from "../Unlocked/Settings/AddConnectWallet/ImportSecretKey";
 import { RemoveWallet } from "../Unlocked/Settings/YourAccount/EditWallets/RemoveWallet";
 import { RenameWallet } from "../Unlocked/Settings/YourAccount/EditWallets/RenameWallet";
@@ -81,19 +85,25 @@ const useStyles = styles((theme) => ({
 export function WalletDrawerButton({
   wallet,
   style,
+  buttonStyle,
+  showIcon = true,
 }: {
   wallet: { name: string; publicKey: string };
   style?: React.CSSProperties;
+  buttonStyle?: React.CSSProperties;
+  showIcon?: boolean;
 }) {
   const { setOpen } = useWalletDrawerContext();
   return (
     <WalletButton
-      wallet={wallet}
+      wallet={wallet as any}
       onClick={(e: any) => {
         e.stopPropagation();
         setOpen(true);
       }}
       style={style}
+      buttonStyle={buttonStyle}
+      showIcon={showIcon}
     />
   );
 }
@@ -102,14 +112,19 @@ function WalletButton({
   wallet,
   onClick,
   style,
+  buttonStyle,
+  showIcon = true,
 }: {
-  wallet: { name: string; publicKey: string };
+  wallet: { name: string; publicKey: string; blockchain: Blockchain };
   onClick: (e: any) => void;
   style?: React.CSSProperties;
+  buttonStyle?: React.CSSProperties;
+  showIcon?: boolean;
 }) {
   const classes = useStyles();
   const theme = useCustomTheme();
   const [tooltipOpen, setTooltipOpen] = useState(false);
+  const iconUrl = getBlockchainLogo(wallet.blockchain);
 
   const onCopy = async () => {
     setTooltipOpen(true);
@@ -123,12 +138,51 @@ function WalletButton({
         flex: 1,
         display: "flex",
         justifyContent: "space-between",
-        marginLeft: "8px",
+        //        marginLeft: "8px",
         ...style,
       }}
     >
-      <Button disableRipple className={classes.addressButton} onClick={onClick}>
-        {wallet.name}
+      <Button
+        disableRipple
+        className={classes.addressButton}
+        onClick={onClick}
+        style={{
+          border: theme.custom.colors.borderFull,
+          background: theme.custom.colors.nav,
+          padding: "5px",
+          paddingLeft: "8px",
+          borderRadius: "30px",
+          ...buttonStyle,
+        }}
+      >
+        {showIcon ? (
+          <div
+            style={{
+              width: "15px",
+              marginRight: "6px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+            }}
+          >
+            {" "}
+            <ProxyImage
+              noSkeleton
+              src={iconUrl}
+              style={{
+                width: "15px",
+              }}
+            />
+          </div>
+        ) : null}
+        <Typography
+          style={{
+            fontSize: "14px",
+            fontWeight: 500,
+          }}
+        >
+          {wallet.name}
+        </Typography>
         <ExpandMore
           style={{
             width: "18px",
@@ -136,6 +190,7 @@ function WalletButton({
           }}
         />
       </Button>
+      {/*
       <WithCopyTooltip tooltipOpen={tooltipOpen}>
         <Button
           disableRipple
@@ -157,6 +212,7 @@ function WalletButton({
           />
         </Button>
       </WithCopyTooltip>
+			*/}
     </div>
   );
 }
@@ -253,6 +309,10 @@ function WalletNavStack({
       <NavStackScreen
         name="create-or-import-mnemonic"
         component={(props: any) => <CreateOrImportMnemonic {...props} />}
+      />
+      <NavStackScreen
+        name="set-and-sync-mnemonic"
+        component={(props: any) => <ImportMnemonicAutomatic {...props} />}
       />
       <NavStackScreen
         name="import-wallet"
@@ -538,7 +598,7 @@ function _WalletList({
   );
 }
 
-export function WalletList({
+function WalletList({
   wallets,
   clickWallet,
   style,
@@ -599,7 +659,7 @@ export function WalletList({
   );
 }
 
-export function WalletListItem({
+function WalletListItem({
   wallet,
   isSelected,
   isFirst,
@@ -875,7 +935,7 @@ function RecoverButton({
   );
 }
 
-export function StackedWalletAddress({
+function StackedWalletAddress({
   publicKey,
   name,
   type,
@@ -954,7 +1014,7 @@ export function StackedWalletAddress({
               fontSize: "14px",
             }}
           >
-            {walletAddressDisplay(publicKey)}
+            {formatWalletAddress(publicKey)}
           </Typography>
         </div>
       </div>
@@ -1043,7 +1103,7 @@ export function WalletDrawerProvider({ children }: any) {
   );
 }
 
-export function useWalletDrawerContext(): WalletDrawerContext {
+function useWalletDrawerContext(): WalletDrawerContext {
   const ctx = useContext(_WalletDrawerContext);
   if (ctx === null) {
     throw new Error("Context not available");

@@ -18,6 +18,15 @@ export const CHANNEL_POPUP_RESPONSE = "channel-popup-response";
 export const CHANNEL_POPUP_NOTIFICATIONS = "channel-popup-notifications";
 export const CHANNEL_SOLANA_RPC_REQUEST = "channel-solana-rpc-request";
 export const CHANNEL_SOLANA_RPC_RESPONSE = "channel-solana-rpc-response";
+export const CHANNEL_SECURE_BACKGROUND_REQUEST = "channel-secure-event-request";
+export const CHANNEL_SECURE_BACKGROUND_RESPONSE =
+  "channel-secure-event-response";
+export const CHANNEL_SECURE_UI_REQUEST = "channel-secure-ui-request";
+export const CHANNEL_SECURE_UI_RESPONSE = "channel-secure-ui-response";
+export const CHANNEL_SECURE_BACKGROUND_EXTENSION_REQUEST =
+  "channel-secure-extension-event-request";
+export const CHANNEL_SECURE_BACKGROUND_EXTENSION_RESPONSE =
+  "channel-secure-extension-event-response";
 export const CHANNEL_SOLANA_NOTIFICATION = "channel-solana-notification";
 export const CHANNEL_SOLANA_CONNECTION_RPC_UI =
   "channel-solana-connection-rpc-ui";
@@ -140,8 +149,6 @@ export const UI_RPC_METHOD_KEYRING_STORE_CHECK_PASSWORD =
   "ui-rpc-method-keyring-store-check-password";
 export const UI_RPC_METHOD_KEYRING_STORE_CREATE =
   "ui-rpc-method-keyring-store-create";
-export const UI_RPC_METHOD_KEYRING_STORE_KEEP_ALIVE =
-  "ui-rpc-method-keyring-store-keep-alive";
 export const UI_RPC_METHOD_KEYRING_STORE_LOCK =
   "ui-rpc-method-keyring-store-lock";
 export const UI_RPC_METHOD_KEYRING_STORE_MNEMONIC_CREATE =
@@ -498,15 +505,11 @@ export const LEDGER_METHOD_ETHEREUM_SIGN_EIP712_MESSAGE =
 export const LEDGER_METHOD_ETHEREUM_SIGN_EIP712_HASHED_MESSAGE =
   "ledger-method-ethereum-sign-eip712-hashed-message";
 
-export const PLUGIN_RPC_METHOD_WINDOW_OPEN = "rpc-method-window-open";
-
 export const PLUGIN_RPC_METHOD_PLUGIN_OPEN = "rpc-method-plugin-open";
-
-export const PLUGIN_RPC_METHOD_CHAT_OPEN = "rpc-method-plugin-close-to";
-
-export const PLUGIN_RPC_METHOD_CLOSE_TO = "rpc-method-chat-open";
-
 export const PLUGIN_RPC_METHOD_POP_OUT = "rpc-method-pop-out";
+
+export const PLUGIN_RPC_METHOD_RESIZE_EXTENSION_WINDOW =
+  "rpc-method-resize-extension-window";
 
 export const BACKGROUND_SERVICE_WORKER_READY = "service-worker-ready";
 
@@ -519,6 +522,7 @@ export const EXTENSION_HEIGHT = 600;
 // UI View Model Constants.
 //
 export const TAB_BALANCES = "balances";
+export const TAB_TOKENS = "tokens";
 export const TAB_SWAP = "swap";
 export const TAB_NFTS = "nfts";
 export const TAB_MESSAGES = "messages";
@@ -528,6 +532,7 @@ export const TAB_RECENT_ACTIVITY = "recent-activity";
 export const TAB_NOTIFICATIONS = "notifications";
 export const TAB_SET = new Set([
   TAB_BALANCES,
+  TAB_TOKENS,
   TAB_SWAP,
   TAB_NFTS,
   TAB_APPS,
@@ -536,8 +541,13 @@ export const TAB_SET = new Set([
   TAB_RECENT_ACTIVITY,
   TAB_NOTIFICATIONS,
 ]);
+export const TAB_BALANCES_SET = new Set([
+  TAB_TOKENS,
+  TAB_NFTS,
+  TAB_RECENT_ACTIVITY,
+]);
 
-export const NAV_COMPONENT_TOKEN = "balances/token";
+export const NAV_COMPONENT_TOKEN = "tokens/token";
 export const NAV_COMPONENT_NFT_DETAIL = "nfts/detail";
 export const NAV_COMPONENT_NFT_COLLECTION = "nfts/collection";
 export const NAV_COMPONENT_NFT_EXPERIENCE = "nfts/experience";
@@ -576,9 +586,6 @@ export const BACKPACK_LINK = "https://backpack.app";
 export const BACKPACK_TERMS_OF_SERVICE = "https://backpack.app/terms";
 export const BACKPACK_GITHUB_LINK = "https://github.com/coral-xyz/backpack";
 
-export const ALCHEMY_ETHEREUM_MAINNET_API_KEY =
-  "DlJr6QuBC2EaE-L60-iqQQGq9hi9-XSZ";
-
 export const AVATAR_BASE_URL = "https://swr.xnfts.dev/avatars";
 export const BACKEND_API_URL = "https://backpack-api.xnfts.dev";
 export const REALTIME_API_URL = "https://backend-ws.xnfts.dev";
@@ -587,6 +594,9 @@ export const MESSAGING_COMMUNICATION_PUSH = "MESSAGING_COMMUNICATION_PUSH";
 export const MESSAGING_COMMUNICATION_FETCH = "MESSAGING_COMMUNICATION_FETCH";
 export const MESSAGING_COMMUNICATION_FETCH_RESPONSE =
   "MESSAGING_COMMUNICATION_FETCH_RESPONSE";
+
+export const UNKNOWN_ICON_SRC =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M24 12C24 18.6274 18.6274 24 12 24C5.37258 24 0 18.6274 0 12C0 5.37258 5.37258 0 12 0C18.6274 0 24 5.37258 24 12ZM10.9645 15.3015C10.9645 15.7984 11.3677 16.2015 11.8645 16.2015C12.3612 16.2015 12.7645 15.7984 12.7645 15.3015C12.7645 14.8047 12.3612 14.4015 11.8645 14.4015C11.3677 14.4015 10.9645 14.8047 10.9645 15.3015ZM13.3939 11.8791C13.9135 11.5085 14.2656 11.1748 14.4511 10.8777C14.8776 10.1948 14.8728 9.02088 14.0532 8.35291C12.9367 7.44383 10.8943 7.77224 9.6001 8.49763L10.2067 9.7155C10.9189 9.35193 11.553 9.17 12.1092 9.17C12.6546 9.17 13.1214 9.36453 13.1214 9.91004C13.1214 10.4891 12.6543 10.8231 12.1713 11.1684L12.171 11.1686L12.1645 11.173C11.9915 11.2996 11.8416 11.4235 11.7147 11.5442C11.5451 11.7059 11.4168 11.8621 11.3298 12.013C11.1013 12.4085 11.1014 12.736 11.1019 13.152V13.2015H12.5761L12.576 13.158C12.5755 12.6312 12.5753 12.4844 13.3939 11.8791ZM20.5 12C20.5 16.6944 16.6944 20.5 12 20.5C7.30558 20.5 3.5 16.6944 3.5 12C3.5 7.30558 7.30558 3.5 12 3.5C16.6944 3.5 20.5 7.30558 20.5 12ZM22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z' fill='%238F929E'/%3E%3C/svg%3E";
 
 // Image displayed in the event of a broken NFT.
 export const UNKNOWN_NFT_ICON_SRC =
@@ -643,16 +653,44 @@ export const WHITELISTED_CHAT_COLLECTIONS: {
     collectionId: "ajM4QBHtZBBRcMqqq9gawdHK28GXcb2yeRs6WBnqhay",
   },
   {
-    id: "3PMczHyeW2ds7ZWDZbDSF3d21HBqG6yR4tG7vP6qczfj",
-    name: "The Madlist",
+    id: "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",
+    name: "Mad Lads",
     image: "https://www.madlads.com/mad_lads_logo.svg",
-    collectionId: "3PMczHyeW2ds7ZWDZbDSF3d21HBqG6yR4tG7vP6qczfj",
+    collectionId: "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",
   },
   {
-    id: "FCk24cq1pYhQo5MQYKHf5N9VnY8tdrToF7u6gvvsnGrn",
-    name: "The Madlist",
-    image: "https://www.madlads.com/mad_lads_logo.svg",
-    collectionId: "FCk24cq1pYhQo5MQYKHf5N9VnY8tdrToF7u6gvvsnGrn",
+    id: "Et9ckpQCXFN5PsiYN781AczSVuQYyGEdDEPDJ7jrxz4c",
+    name: "Sporting F1",
+    image:
+      "https://arweave.net/Dh3FfZurEtmQD52mmq-axte9M6IMKmNSGzzdTpN9sJc?ext=png",
+    collectionId: "Et9ckpQCXFN5PsiYN781AczSVuQYyGEdDEPDJ7jrxz4c",
+  },
+  {
+    id: "4wUE3tH2MTjNnxKQPYyx3owgL95ZYbYAtW1EsQPz9hfV",
+    name: "ROGUE SHARKS",
+    image:
+      "https://www.arweave.net/1f5b49zDrkC9Lot6jKFMCzyeZ57DSK8x_KkFvCFNtek?ext=png",
+    collectionId: "4wUE3tH2MTjNnxKQPYyx3owgL95ZYbYAtW1EsQPz9hfV",
+  },
+  {
+    id: "SMBtHCCC6RYRutFEPb4gZqeBLUZbMNhRKaMKZZLHi7W",
+    name: "Solana Monkey Business",
+    image: "https://arweave.net/euenSGbG_RtrKbG_9mGHbhUNqwmqLclt6_ehziByHNw",
+    collectionId: "SMBtHCCC6RYRutFEPb4gZqeBLUZbMNhRKaMKZZLHi7W",
+  },
+  {
+    id: "65oVo8J1MAEbfoEDPzDV6ZdK2pv8He6ofBeZnxH2nUPY",
+    name: "ROGUE SHARKS",
+    image:
+      "https://www.arweave.net/7_eAeMzUfF2oGmktoh5rNdGJgwYZalnzwx3Y7mXxHnE?ext=png",
+    collectionId: "65oVo8J1MAEbfoEDPzDV6ZdK2pv8He6ofBeZnxH2nUPY",
+  },
+  {
+    id: "BnLHVGHi3k3ChAKNKSyKVKMKiovwRdRBzdjs5er44RHS",
+    name: "Lonfo",
+    image:
+      "https://shdw-drive.genesysgo.net/4YRxtrHGRN9rVRnzVRYDEYD8YC9z2woaZcfarMfmU4aJ/1582.png",
+    collectionId: "BnLHVGHi3k3ChAKNKSyKVKMKiovwRdRBzdjs5er44RHS",
   },
 ];
 

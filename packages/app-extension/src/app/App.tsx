@@ -1,9 +1,10 @@
-import { lazy, Suspense, useLayoutEffect } from "react";
+import { lazy, Suspense } from "react";
 import { HashRouter } from "react-router-dom";
 import { EXTENSION_HEIGHT, EXTENSION_WIDTH } from "@coral-xyz/common";
 import {
   NotificationsProvider,
-  useBackgroundKeepAlive,
+  secureBackgroundSenderAtom,
+  useKeyringStoreState,
 } from "@coral-xyz/recoil";
 import {
   BACKGROUND_BACKDROP_COLOR,
@@ -20,10 +21,12 @@ import { ErrorBoundary } from "./ErrorBoundary";
 
 const Router = lazy(() => import("./Router"));
 
-import "./App.css";
+import type { TransportSender } from "@coral-xyz/secure-client";
+
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
 import "react-toastify/dist/ReactToastify.css";
+import "./App.css";
 
 const BACKDROP_STYLE = {
   height: "100vh",
@@ -32,48 +35,17 @@ const BACKDROP_STYLE = {
   background: "red",
 };
 
-export default function App() {
+export default function App({
+  secureBackgroundSender,
+}: {
+  secureBackgroundSender: TransportSender;
+}) {
   //
   // We use an extra copy of preferences in the local storage backend to avoid
   // hitting the service worker for a slightly faster load time.
   //
   const pStr = window.localStorage.getItem("preferences");
   const preferences = pStr ? JSON.parse(pStr) : {};
-
-  useLayoutEffect(() => {
-    console.log(`
-                      d####b
-                   d##########b
-
-                d################b
-            d#######################b
-          d###########^''''^##########b
-         d##########b        d##########b
-        d##########b          d##########b
-        ############b        d############
-        ##############b....d##############
-        ##################################
-        ##################################
-        ##################################
-        ##################################
-         ################################
-
-         ################################
-        ##################################
-        ##################################
-        ##################################
-        ##################################
-         ################################
-
-         Backpack - A home for your xNFTs
-
-              https://backpack.app
-       https://github.com/coral-xyz/backpack
-
-  DO NOT COPY OR PASTE ANYTHING AS INSTRUCTED BY 
-             ANOTHER PERSON IN HERE!
-`);
-  }, []);
 
   return (
     <div
@@ -85,7 +57,11 @@ export default function App() {
       }}
     >
       <HashRouter>
-        <RecoilRoot>
+        <RecoilRoot
+          initializeState={({ set }) => {
+            set(secureBackgroundSenderAtom, secureBackgroundSender);
+          }}
+        >
           <WithTheme>
             <_App />
           </WithTheme>
@@ -96,7 +72,7 @@ export default function App() {
 }
 
 function _App() {
-  useBackgroundKeepAlive();
+  useKeyringStoreState();
   return (
     <NotificationsProvider>
       <ErrorBoundary>

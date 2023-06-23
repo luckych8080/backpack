@@ -2,54 +2,99 @@
 <html>
   <head>
     <title>service worker loader</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       body {
+        padding-top: 60px;
         background: red;
       }
     </style>
   </head>
   <body>
     <script type="module">
-      (function setup() {
-        //
-        // Kickoff the service worker.
-        //
-        navigator.serviceWorker
-          .register(new URL("./service-worker.ts", import.meta.url), {
-            type: "module",
-          })
-          .then((registration) => {
-            console.log("SERVICE WORKER: registered.", registration);
-          })
-          .catch((error) => {
-            console.log("SERVICE WORKER: registration failed:", error);
-          });
+      function changeBgColor(color) {
+        document.body.style.backgroundColor = color;
+      }
+
+      function logStatus(name, data = "") {
+        var element = document.createElement("div");
+        element.innerHTML = name + ": " + data;
+        document.body.appendChild(element);
+      }
+
+      function getUrlHash() {
+        try {
+          var url = window.location.href;
+          var hash = url
+            .split("/service-worker-loader.html")[0]
+            .split("background-scripts/")[1];
+
+          return {
+            url,
+            hash: hash ? hash : "local",
+          };
+        } catch (error) {
+          return {
+            url: window.location.href,
+            hash: error.message,
+          };
+        }
+      }
+
+      (async function setup() {
+        const urlData = getUrlHash();
+        logStatus("url", urlData.url);
+        logStatus("hash", urlData.hash);
+        logStatus("securecontext", window.isSecureContext);
+        logStatus("typeof navigator", typeof navigator.serviceWorker);
+
+        // check to see if an old service worker needs to be unregistered
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        logStatus("# registrations", registrations.length);
+
+        // Kickoff the service worker registration
+        try {
+          const registration = await navigator.serviceWorker.register(
+            new URL("./service-worker.ts", import.meta.url),
+            {
+              type: "module",
+            }
+          );
+          logStatus("sw:register");
+
+          registration.update();
+
+          changeBgColor("yellow");
+          logStatus("sw:registered");
+
+          await registration.active.postMessage({ type: "READY" });
+        } catch (error) {
+          logStatus("sw:register failed", error.message);
+        }
 
         navigator.serviceWorker.addEventListener("install", (event) => {
-          console.log("SERVICE WORKER: installing");
+          logStatus("sw:install");
+          changeBgColor("orange");
         });
 
         navigator.serviceWorker.addEventListener("activate", (event) => {
-          console.log("SERVICE WORKER: activating");
+          logStatus("sw:active");
+          changeBgColor("blue");
         });
 
-        //
         // Receive messages from the service worker..
-        //
         navigator.serviceWorker.onmessage = (event) => {
-          console.log("SERVICE WORKER: message received");
+          logStatus("sw:onmessage");
+          changeBgColor("green");
+
           window.ReactNativeWebView?.postMessage(JSON.stringify(event.data));
         };
 
-        //
         // Send a message to the background service worker.
-        //
         window.postMessageToBackgroundViaWebview = (rawData) => {
-          console.log("SERVICE WORKER: message sent");
+          console.log("SERVICE WORKER: message sent", rawData);
           navigator.serviceWorker.controller.postMessage(rawData);
         };
-
-        document.querySelector("body").style.background = "green";
       })();
     </script>
   </body>

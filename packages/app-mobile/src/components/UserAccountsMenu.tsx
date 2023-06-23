@@ -1,28 +1,21 @@
 import type { BottomSheetBackdropProps } from "@gorhom/bottom-sheet";
 
-import { useCallback, useMemo, useRef } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { ScrollView, Pressable, Text, View } from "react-native";
 
 import { UI_RPC_METHOD_ACTIVE_USER_UPDATE } from "@coral-xyz/common";
 import { useAllUsers, useBackgroundClient, useUser } from "@coral-xyz/recoil";
-import { MaterialIcons } from "@expo/vector-icons";
 import { BottomSheetBackdrop, BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ExpandCollapseIcon, IconCheckmark } from "~components/Icon";
-import {
-  Screen,
-  Avatar,
-  Margin,
-  RoundedContainerGroup,
-  PrimaryButton,
-} from "~components/index";
+import { ExpandCollapseIcon } from "~components/Icon";
+import { UserAccountListItem } from "~components/ListItem";
+import { Screen, RoundedContainerGroup } from "~components/index";
 import { useTheme } from "~hooks/useTheme";
-import { SettingsRow } from "~screens/Unlocked/Settings/components/SettingsRow";
 
 // NOTE(peter) not used anymore in lieu of using react navigation modal
-export function AccountDropdownHeader({}): JSX.Element {
+export function AccountDropdownHeader(): JSX.Element {
   const navigation = useNavigation();
   const theme = useTheme();
   const user = useUser();
@@ -96,23 +89,7 @@ export function AccountDropdownHeader({}): JSX.Element {
   );
 }
 
-// function AddMoreButton({ onPress }: { onPress: () => void }): JSX.Element {
-//   const theme = useTheme();
-//   return (
-//     <PrimaryButton
-//       label="Add another account"
-//       onPress={onPress}
-//       icon={
-//         <MaterialIcons
-//           color={theme.custom.colors.primaryButtonTextColor}
-//           name="add"
-//           size={24}
-//         />
-//       }
-//     />
-//   );
-// }
-
+// used to be used for the user accounts
 export function UserAccountMenu({ navigation }): JSX.Element {
   const insets = useSafeAreaInsets();
 
@@ -129,52 +106,63 @@ export function UserAccountMenu({ navigation }): JSX.Element {
   );
 }
 
+// deprecated not used anywhere
 function UsersList({ onDismiss }: { onDismiss: () => void }): JSX.Element {
   const background = useBackgroundClient();
   const users = useAllUsers();
   const _user = useUser();
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  const handlePressItem = async (uuid: string) => {
-    await background.request({
-      method: UI_RPC_METHOD_ACTIVE_USER_UPDATE,
-      params: [uuid],
-    });
-
-    onDismiss();
+  const handleUpdateActiveUser = async (uuid: string) => {
+    try {
+      setLoadingId(uuid);
+      await background.request({
+        method: UI_RPC_METHOD_ACTIVE_USER_UPDATE,
+        params: [uuid],
+      });
+      onDismiss();
+    } catch (error) {
+      console.error("Error updating active user", error);
+    } finally {
+      setLoadingId(null);
+    }
   };
 
-  return (
-    <RoundedContainerGroup>
-      {users.map(({ username, uuid }: any, idx: number) => (
-        <UserAccountListItem
-          key={username}
-          uuid={uuid}
-          username={username}
-          isActive={_user.username === username}
-          onPress={handlePressItem}
-        />
-      ))}
-    </RoundedContainerGroup>
-  );
-}
+  const s = users.find((u) => u.uuid === _user.uuid);
 
-function UserAccountListItem({
-  uuid,
-  username,
-  isActive,
-  onPress,
-}: {
-  uuid: string;
-  username: string;
-  isActive: boolean;
-  onPress: (uuid: string) => void;
-}): JSX.Element {
+  // NOTE: Do not do this! Wrapping ScrollView in a map is bad for performance.
+  // Look for FlatList example until Peter fixes this
   return (
-    <SettingsRow
-      icon={<Avatar size={24} />}
-      label={`@${username}`}
-      detailIcon={isActive ? <IconCheckmark size={24} /> : null}
-      onPress={() => onPress(uuid)}
-    />
+    <ScrollView>
+      <RoundedContainerGroup>
+        <>
+          {s ? (
+            <UserAccountListItem
+              key={s.username}
+              uuid={s.uuid}
+              username={s.username}
+              isActive={_user.username === s.username}
+              isLoading={loadingId === s.uuid}
+              onPress={handleUpdateActiveUser}
+            />
+          ) : null}
+          {users.map(({ username, uuid }: any) => {
+            if (username === s.username) {
+              return null;
+            }
+            return (
+              <UserAccountListItem
+                key={username}
+                uuid={uuid}
+                username={username}
+                isActive={_user.username === username}
+                isLoading={loadingId === s.uuid}
+                onPress={handleUpdateActiveUser}
+              />
+            );
+          })}
+        </>
+      </RoundedContainerGroup>
+    </ScrollView>
   );
 }

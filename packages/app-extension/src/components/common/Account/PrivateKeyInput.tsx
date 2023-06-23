@@ -1,18 +1,8 @@
 import { useEffect, useState } from "react";
 import type { Blockchain, ServerPublicKey } from "@coral-xyz/common";
-import {
-  UI_RPC_METHOD_FIND_SERVER_PUBLIC_KEY_CONFLICTS,
-  validatePrivateKey,
-  walletAddressDisplay,
-} from "@coral-xyz/common";
+import { formatWalletAddress } from "@coral-xyz/common";
 import { PrimaryButton, TextInput } from "@coral-xyz/react-common";
-import {
-  useActivePublicKeys,
-  useAllWallets,
-  useBackgroundClient,
-  useDehydratedWallets,
-  useWalletPublicKeys,
-} from "@coral-xyz/recoil";
+import { useSavePrivateKey } from "@coral-xyz/recoil";
 import { Box } from "@mui/material";
 
 import { Header, SubtextParagraph } from "../../common";
@@ -22,6 +12,7 @@ export const PrivateKeyInput = ({
   onNext,
   serverPublicKeys,
   displayNameInput = false,
+  onboarding,
 }: {
   blockchain?: Blockchain;
   onNext: ({
@@ -37,14 +28,16 @@ export const PrivateKeyInput = ({
   }) => void;
   serverPublicKeys?: Array<ServerPublicKey>;
   displayNameInput?: boolean;
+  onboarding?: boolean;
 }) => {
-  const background = useBackgroundClient();
-  const dehydrated = useDehydratedWallets();
-  const wallets = useAllWallets();
   const [name, setName] = useState("");
   const [privateKey, setPrivateKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { handleSavePrivateKey } = useSavePrivateKey({
+    onboarding,
+  });
 
   useEffect(() => {
     // Clear error on form input changes
@@ -53,73 +46,18 @@ export const PrivateKeyInput = ({
 
   const onSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    // Do some validation of the private key
-    let _privateKey: string, _publicKey: string, _blockchain: Blockchain;
-    try {
-      ({
-        privateKey: _privateKey,
-        publicKey: _publicKey,
-        blockchain: _blockchain,
-      } = validatePrivateKey(privateKey, blockchain));
-    } catch (e) {
-      setLoading(false);
-      setError((e as Error).message);
-      return;
-    }
-
-    if (dehydrated.find((d) => d.publicKey === _publicKey)) {
-      setError("You can recover this private key from your wallets page.");
-      return;
-    } else if (wallets.find((w) => w.publicKey === _publicKey)) {
-      setError("This wallet is already active and available in your account.");
-      return;
-    }
-
-    // Check if the public key we have is the public key we wanted (if we were
-    // looking for a specific public key)
-    if (serverPublicKeys && serverPublicKeys.length > 0) {
-      setLoading(false);
-      const found = !!serverPublicKeys.find(
-        (s: { publicKey: string; blockchain: Blockchain }) =>
-          s.publicKey === _publicKey && s.blockchain === _blockchain
-      );
-      if (!found) {
-        if (serverPublicKeys.length === 1) {
-          setError(
-            `Incorrect private key for ${walletAddressDisplay(
-              serverPublicKeys[0].publicKey
-            )}. The public key was ${walletAddressDisplay(_publicKey)}.`
-          );
-        } else {
-          setError(
-            `Public key ${walletAddressDisplay(
-              _publicKey
-            )} not found on your Backpack account.`
-          );
-        }
-      }
-    } else {
-      // If we aren't searching for a public key we are adding it to the account,
-      // check for conflicts.
-      const response = await background.request({
-        method: UI_RPC_METHOD_FIND_SERVER_PUBLIC_KEY_CONFLICTS,
-        params: [[{ blockchain: _blockchain, publicKey: _publicKey }]],
-      });
-
-      if (response.length > 0) {
-        setError("Wallet address is used by another Backpack account");
-        return;
-      }
-    }
-
-    onNext({
-      blockchain: _blockchain,
-      publicKey: _publicKey,
-      privateKey: _privateKey,
+    const result = await handleSavePrivateKey({
       name,
+      privateKey,
+      blockchain,
+      serverPublicKeys,
+      setLoading,
+      setError,
     });
+
+    if (result) {
+      onNext(result);
+    }
   };
 
   return (
@@ -140,7 +78,7 @@ export const PrivateKeyInput = ({
             {serverPublicKeys && serverPublicKeys.length === 1 ? (
               <>
                 Enter the private key for{" "}
-                {walletAddressDisplay(serverPublicKeys[0].publicKey)} to recover
+                {formatWalletAddress(serverPublicKeys[0].publicKey)} to recover
                 the wallet.
               </>
             ) : (
@@ -166,7 +104,7 @@ export const PrivateKeyInput = ({
             placeholder="Enter private key"
             value={privateKey}
             setValue={(e) => {
-              setPrivateKey(e.target.value);
+              setPrivateKey(e.target.value.trim());
             }}
             onKeyDown={async (e) => {
               if (e.key === "Enter") {

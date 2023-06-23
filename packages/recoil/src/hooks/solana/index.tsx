@@ -1,8 +1,9 @@
-import type { RawMintString } from "@coral-xyz/common";
+import type { RawMintWithProgramIdString } from "@coral-xyz/common";
 import { useRecoilValue } from "recoil";
 
 import * as atoms from "../../atoms";
 
+export * from "./recentTransactionHelpers";
 export * from "./useJupiter";
 export * from "./useLoadSplTokens";
 export * from "./usePlugins";
@@ -10,6 +11,7 @@ export * from "./useRecentTransactions";
 export * from "./useSolanaCommitment";
 export * from "./useSolanaConnection";
 export * from "./useSolanaExplorer";
+export * from "./useSolanaTransaction";
 export * from "./useSplTokenRegistry";
 
 export function useSolanaTokenMint({
@@ -18,6 +20,6 @@ export function useSolanaTokenMint({
 }: {
   publicKey: string;
   tokenAddress: string;
-}): RawMintString {
+}): RawMintWithProgramIdString {
   return useRecoilValue(atoms.solanaTokenMint({ tokenAddress, publicKey }));
 }

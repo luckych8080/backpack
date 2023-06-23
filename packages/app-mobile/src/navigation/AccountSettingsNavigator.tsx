@@ -1,8 +1,9 @@
 import type { ChannelAppUiClient } from "@coral-xyz/common";
+import type { StackScreenProps } from "@react-navigation/stack";
 import type { Commitment } from "@solana/web3.js";
 
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import {
   EthereumConnectionUrl,
@@ -13,7 +14,7 @@ import {
   UI_RPC_METHOD_SOLANA_COMMITMENT_UPDATE,
   UI_RPC_METHOD_SOLANA_CONNECTION_URL_UPDATE,
   UI_RPC_METHOD_SOLANA_EXPLORER_UPDATE,
-  walletAddressDisplay,
+  formatWalletAddress,
 } from "@coral-xyz/common";
 import {
   useBackgroundClient,
@@ -22,16 +23,21 @@ import {
   useSolanaConnectionUrl,
   useSolanaExplorer,
 } from "@coral-xyz/recoil";
+import { XStack } from "@coral-xyz/tamagui";
+import { MaterialIcons } from "@expo/vector-icons";
 import { createStackNavigator } from "@react-navigation/stack";
 import { ethers } from "ethers";
 
+// import { AccountSettingsBottomSheet } from "~components/AccountSettingsBottomSheet";
 import { IconCheckmark } from "~components/Icon";
 import {
-  AccountDropdownHeader,
+  // AccountDropdownHeader,
   UserAccountMenu,
 } from "~components/UserAccountsMenu";
 import { Screen } from "~components/index";
 import { useTheme } from "~hooks/useTheme";
+import { HeaderAvatarButton, HeaderButton } from "~navigation/components";
+import { AccountSettingsScreen } from "~screens/AccountSettingsScreen";
 import { ImportPrivateKeyScreen } from "~screens/ImportPrivateKeyScreen";
 import {
   LogoutWarningScreen,
@@ -61,27 +67,88 @@ import {
 } from "~screens/Unlocked/ShowRecoveryPhraseScreen";
 import { YourAccountScreen } from "~screens/Unlocked/YourAccountScreen";
 
-const { hexlify } = ethers.utils;
+import { AboutBackpackScreen } from "~src/screens/Unlocked/Settings/AboutBackpackScreen";
 
-const Stack = createStackNavigator();
+const { hexlify } = ethers.utils;
 
 function DummyScreen() {
   return <View style={{ flex: 1, backgroundColor: "red" }} />;
 }
 
+type AccountSettingsParamList = {
+  Settings: undefined;
+  Profile: undefined;
+  YourAccount: undefined;
+  "change-password": undefined;
+  Preferences: undefined;
+  PreferencesEthereum: undefined;
+  PreferencesEthereumConnection: undefined;
+  PreferencesEthereumCustomRpcUrl: undefined;
+  PreferencesSolana: undefined;
+  PreferencesSolanaConnection: undefined;
+  PreferencesSolanaCommitment: undefined;
+  PreferencesSolanaExplorer: undefined;
+  PreferencesSolanaCustomRpcUrl: undefined;
+  PreferencesTrustedSites: undefined;
+  xNFTSettings: undefined;
+  WaitingRoom: undefined;
+  "import-private-key": undefined;
+  "reset-warning": undefined;
+  "show-secret-phrase-warning": undefined;
+  "show-secret-phrase": undefined;
+  "show-private-key-warning": undefined;
+  "show-private-key": undefined;
+  "edit-wallets": undefined;
+  "about-backpack": undefined;
+  "edit-wallets-rename": undefined;
+  "edit-wallets-wallet-detail": { name: string; publicKey: string };
+  "add-wallet": undefined;
+  "forgot-password": undefined;
+  "logout-warning": undefined;
+  UserAccountMenu: undefined;
+};
+
+export type EditWalletsScreenProps = StackScreenProps<
+  AccountSettingsParamList,
+  "edit-wallets"
+>;
+
+const Stack = createStackNavigator<AccountSettingsParamList>();
 export function AccountSettingsNavigator(): JSX.Element {
   const theme = useTheme();
   return (
-    <Stack.Navigator initialRouteName="Profile">
+    <Stack.Navigator initialRouteName="Settings">
+      <Stack.Screen
+        name="Settings"
+        component={AccountSettingsScreen}
+        options={({ navigation }) => {
+          return {
+            title: "Settings",
+            headerLeft: (props) => (
+              <XStack ml={16}>
+                <HeaderAvatarButton {...props} navigation={navigation} />
+              </XStack>
+            ),
+            headerTintColor: theme.custom.colors.fontColor,
+            headerBackTitle: "Back",
+          };
+        }}
+      />
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{
-          headerTitle: ({ navigation, options }) => (
-            <AccountDropdownHeader navigation={navigation} options={options} />
-          ),
-          headerTintColor: theme.custom.colors.fontColor,
-          headerBackTitle: "Back",
+        options={({ navigation }) => {
+          return {
+            headerShown: true,
+            title: "Settings",
+            headerLeft: () => (
+              <XStack ml={16}>
+                <HeaderButton name="menu" onPress={navigation.openDrawer} />
+              </XStack>
+            ),
+            headerTintColor: theme.custom.colors.fontColor,
+            headerBackTitle: "Back",
+          };
         }}
       />
       <Stack.Group
@@ -92,11 +159,11 @@ export function AccountSettingsNavigator(): JSX.Element {
           component={YourAccountScreen}
           options={{
             title: "Your Account",
-            headerBackTitle: "Profile",
+            // headerBackTitle: "Profile",
           }}
         />
         <Stack.Screen
-          options={{ title: "Change password" }}
+          options={{ title: "Change Password" }}
           name="change-password"
           component={ChangePasswordScreen}
         />
@@ -136,7 +203,7 @@ export function AccountSettingsNavigator(): JSX.Element {
           component={PreferencesSolanaCommitment}
         />
         <Stack.Screen
-          // options={{ title: "Preferences" }}
+          options={{ title: "Solana Explorer" }}
           name="PreferencesSolanaExplorer"
           component={PreferencesSolanaExplorer}
         />
@@ -165,7 +232,11 @@ export function AccountSettingsNavigator(): JSX.Element {
           name="import-private-key"
           component={ImportPrivateKeyScreen}
         />
-        <Stack.Screen name="reset-warning" component={ResetWarningScreen} />
+        <Stack.Screen
+          name="reset-warning"
+          component={ResetWarningScreen}
+          options={{ title: "Warning" }}
+        />
         <Stack.Screen
           name="show-secret-phrase-warning"
           component={ShowRecoveryPhraseWarningScreen}
@@ -188,7 +259,23 @@ export function AccountSettingsNavigator(): JSX.Element {
         <Stack.Screen
           name="edit-wallets"
           component={EditWalletsScreen}
-          options={{ title: "Edit Wallets" }}
+          options={({ navigation }) => ({
+            title: "Edit Wallets",
+            headerRight: () => (
+              <Pressable
+                onPress={() => {
+                  navigation.push("add-wallet");
+                }}
+              >
+                <MaterialIcons
+                  name="add"
+                  size={24}
+                  color="black"
+                  style={{ paddingRight: 16 }}
+                />
+              </Pressable>
+            ),
+          })}
         />
         <Stack.Screen
           name="edit-wallets-rename"
@@ -201,9 +288,14 @@ export function AccountSettingsNavigator(): JSX.Element {
           options={({ route }) => {
             const { name, publicKey } = route.params;
             return {
-              title: `${name} (${walletAddressDisplay(publicKey)})`,
+              title: `${name} (${formatWalletAddress(publicKey)})`,
             };
           }}
+        />
+        <Stack.Screen
+          name="about-backpack"
+          component={AboutBackpackScreen}
+          options={{ title: "About" }}
         />
         <Stack.Screen
           options={{ title: "Add / Connect Wallet" }}
@@ -232,23 +324,8 @@ export function AccountSettingsNavigator(): JSX.Element {
 }
 
 function PreferencesSolanaCustomRpcUrl({ navigation }) {
-  const background = useBackgroundClient();
   const [rpcUrl, setRpcUrl] = useState("");
   const [rpcUrlError, setRpcUrlError] = useState(false);
-
-  const changeNetwork = () => {
-    try {
-      background
-        .request({
-          method: UI_RPC_METHOD_SOLANA_CONNECTION_URL_UPDATE,
-          params: [rpcUrl],
-        })
-        .then(close)
-        .catch(console.error);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   useEffect(() => {
     if (!rpcUrl) {
@@ -309,31 +386,15 @@ function PreferencesSolanaConnection({ navigation }) {
   const menuItems = {
     "Mainnet (Beta)": {
       onPress: () => changeNetwork(SolanaCluster.MAINNET),
-      detail: currentUrl === SolanaCluster.MAINNET ? <IconCheckmark /> : <></>,
+      detail: currentUrl === SolanaCluster.MAINNET ? <IconCheckmark /> : null,
     },
     Devnet: {
       onPress: () => changeNetwork(SolanaCluster.DEVNET),
-      detail: currentUrl === SolanaCluster.DEVNET ? <IconCheckmark /> : <></>,
+      detail: currentUrl === SolanaCluster.DEVNET ? <IconCheckmark /> : null,
     },
     Localnet: {
       onPress: () => changeNetwork(SolanaCluster.LOCALNET),
-      detail: currentUrl === SolanaCluster.LOCALNET ? <IconCheckmark /> : <></>,
-    },
-    Custom: {
-      onPress: () => {
-        navigation.push("PreferencesSolanaCustomRpcUrl");
-      },
-      detail:
-        currentUrl !== SolanaCluster.MAINNET &&
-        currentUrl !== SolanaCluster.DEVNET &&
-        currentUrl !== SolanaCluster.LOCALNET ? (
-          <>
-            <IconCheckmark />
-            <IconPushDetail />
-          </>
-        ) : (
-          <IconPushDetail />
-        ),
+      detail: currentUrl === SolanaCluster.LOCALNET ? <IconCheckmark /> : null,
     },
   };
 
@@ -361,15 +422,15 @@ export function PreferencesSolanaCommitment({ navigation }) {
   const menuItems = {
     Processed: {
       onPress: () => changeCommitment("processed"),
-      detail: commitment === "processed" ? <IconCheckmark /> : <></>,
+      detail: commitment === "processed" ? <IconCheckmark /> : null,
     },
     Confirmed: {
       onPress: () => changeCommitment("confirmed"),
-      detail: commitment === "confirmed" ? <IconCheckmark /> : <></>,
+      detail: commitment === "confirmed" ? <IconCheckmark /> : null,
     },
     Finalized: {
       onPress: () => changeCommitment("finalized"),
-      detail: commitment === "finalized" ? <IconCheckmark /> : <></>,
+      detail: commitment === "finalized" ? <IconCheckmark /> : null,
     },
   };
 
@@ -390,24 +451,11 @@ export function PreferencesSolanaExplorer({ navigation }) {
   const explorer = useSolanaExplorer();
 
   const menuItems = {
-    "Solana Beach": {
-      onPress: () => changeExplorer(SolanaExplorer.SOLANA_BEACH),
-      detail:
-        explorer === SolanaExplorer.SOLANA_BEACH ? <IconCheckmark /> : <></>,
-    },
-    "Solana Explorer": {
-      onPress: () => changeExplorer(SolanaExplorer.SOLANA_EXPLORER),
-      detail:
-        explorer === SolanaExplorer.SOLANA_EXPLORER ? <IconCheckmark /> : <></>,
-    },
-    "Solana FM": {
-      onPress: () => changeExplorer(SolanaExplorer.SOLANA_FM),
-      detail: explorer === SolanaExplorer.SOLANA_FM ? <IconCheckmark /> : <></>,
-    },
-    Solscan: {
-      onPress: () => changeExplorer(SolanaExplorer.SOLSCAN),
-      detail: explorer === SolanaExplorer.SOLSCAN ? <IconCheckmark /> : <></>,
-    },
+    "Solana Beach": SolanaExplorer.SOLANA_BEACH,
+    "Solana Explorer": SolanaExplorer.SOLANA_EXPLORER,
+    "Solana FM": SolanaExplorer.SOLANA_FM,
+    Solscan: SolanaExplorer.SOLSCAN,
+    XRAY: SolanaExplorer.XRAY,
   };
 
   const changeExplorer = (explorer: string) => {
@@ -423,10 +471,23 @@ export function PreferencesSolanaExplorer({ navigation }) {
     }
   };
 
-  return <SettingsList menuItems={menuItems} />;
+  return (
+    <SettingsList
+      menuItems={Object.entries(menuItems).reduce(
+        (acc, [name, url]) => ({
+          ...acc,
+          [name]: {
+            onPress: () => changeExplorer(url),
+            detail: explorer === url ? <IconCheckmark /> : null,
+          },
+        }),
+        {} as React.ComponentProps<typeof SettingsList>["menuItems"]
+      )}
+    />
+  );
 }
 
-function PreferencesSolana({ route, navigation }) {
+function PreferencesSolana({ navigation }) {
   const menuItems = {
     "RPC Connection": {
       onPress: () => navigation.push("PreferencesSolanaConnection"),
@@ -469,7 +530,6 @@ export const changeNetwork = async (
 };
 
 function PreferencesEthereumCustomRpcUrl({ navigation }) {
-  const background = useBackgroundClient();
   const [rpcUrl, setRpcUrl] = useState("");
   const [chainId, setChainId] = useState("");
   const [rpcUrlError, setRpcUrlError] = useState(false);
@@ -486,10 +546,6 @@ function PreferencesEthereumCustomRpcUrl({ navigation }) {
       setRpcUrlError(true);
     }
   }, [rpcUrl]);
-
-  async function onSubmit() {
-    await changeNetwork(background, rpcUrl, chainId);
-  }
 
   // <div style={{ paddingTop: 16, height: "100%" }}>
   //   <form
@@ -552,11 +608,7 @@ function PreferencesEthereumConnection({ navigation }) {
         close();
       },
       detail:
-        currentUrl === EthereumConnectionUrl.MAINNET ? (
-          <IconCheckmark />
-        ) : (
-          <></>
-        ),
+        currentUrl === EthereumConnectionUrl.MAINNET ? <IconCheckmark /> : null,
     },
     "Görli Testnet": {
       onPress: async () => {
@@ -564,7 +616,7 @@ function PreferencesEthereumConnection({ navigation }) {
         close();
       },
       detail:
-        currentUrl === EthereumConnectionUrl.GOERLI ? <IconCheckmark /> : <></>,
+        currentUrl === EthereumConnectionUrl.GOERLI ? <IconCheckmark /> : null,
     },
     Localnet: {
       onPress: async () => {
@@ -574,29 +626,14 @@ function PreferencesEthereumConnection({ navigation }) {
       detail:
         currentUrl === EthereumConnectionUrl.LOCALNET ? (
           <IconCheckmark />
-        ) : (
-          <></>
-        ),
-    },
-    Custom: {
-      onPress: () => navigation.push("PreferencesEthereumCustomRpcUrl"),
-      detail:
-        currentUrl !== EthereumConnectionUrl.MAINNET &&
-        currentUrl !== EthereumConnectionUrl.GOERLI &&
-        currentUrl !== EthereumConnectionUrl.LOCALNET ? (
-          <>
-            <IconCheckmark /> <IconPushDetail />
-          </>
-        ) : (
-          <IconPushDetail />
-        ),
+        ) : null,
     },
   };
 
   return <SettingsList menuItems={menuItems} />;
 }
 
-function PreferencesEthereum({ route, navigation }) {
+function PreferencesEthereum({ navigation }) {
   return (
     <Screen>
       <SettingsRow

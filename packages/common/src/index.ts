@@ -16,6 +16,7 @@ import type {
 } from "./types";
 
 export * from "./api";
+export * from "./apollo";
 export * from "./browser";
 export * from "./channel";
 export * from "./constants";
@@ -23,6 +24,7 @@ export * from "./crypto";
 export * from "./ethereum";
 export * from "./explorer";
 export * from "./feature-gates";
+export * from "./formatting";
 export * from "./logging";
 export * from "./messages";
 export * from "./navigation";
@@ -30,6 +32,7 @@ export * from "./notifications";
 export * from "./plugin";
 export * from "./preferences";
 export * from "./solana";
+export * from "./tokens";
 export * from "./types";
 export * from "./utils";
 export { useStore } from "./zustand-store";
@@ -58,28 +61,6 @@ export function withContextPort<Backend>(
     const ctx = { backend, events, sender };
     return await handler(ctx, data);
   };
-}
-
-export function walletAddressDisplay(
-  publicKey: PublicKey | string,
-  numDigits = 4
-): string {
-  if (!publicKey) return "";
-  const pubkeyStr: string =
-    typeof publicKey === "string" ? publicKey : publicKey.toString();
-  return `${pubkeyStr.slice(0, numDigits)}...${pubkeyStr.slice(
-    pubkeyStr.length - numDigits
-  )}`;
-}
-
-export function usernameDisplay(username: string, maxLength = 10) {
-  if (!username) {
-    return "";
-  }
-  if (username.length <= maxLength) {
-    return username;
-  }
-  return username.slice(0, maxLength - 2) + "..";
 }
 
 /**
@@ -147,7 +128,13 @@ export function isValidEventOrigin(event: Event): boolean {
   return false;
 }
 
-export function isMadLads(nft: Nft) {
-  // TODO
-  return nft.id === "FLMYJnabb2HvyGzE6EgXfLu4bHxugkwVyeEmSitisWKa";
+export function isMadLads(creators: Nft["creators"]) {
+  const secondCreator = creators?.[1];
+  return (
+    secondCreator?.address === "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW"
+  );
+}
+
+export function parseNftName(nft: Nft): string {
+  return nft.name !== "" ? nft.name : nft.collectionName;
 }

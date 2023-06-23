@@ -61,17 +61,31 @@ export type NftCollection = {
   totalSupply: string;
   itemIds: Array<string>;
   items?: { [id: string]: Nft }; // Not expected to be defined. Eth only.
+  isMadlads?: boolean;
 };
 
 export type Nft = {
   id: string;
   blockchain: Blockchain;
+  publicKey?: string;
   name: string;
   description: string;
   externalUrl: string;
   imageUrl: string;
   imageData?: string;
   attributes?: NftAttribute[];
+  properties?: {
+    [key: string]: any;
+    files?: Array<{
+      uri: string;
+      type: string;
+    }>;
+  };
+  creators?: Array<{
+    address: string;
+    verified: number | boolean;
+    share: number;
+  }>;
   mint?: string;
   collectionName: string;
   metadataCollectionId?: string;
@@ -166,7 +180,7 @@ export type XnftPreferenceStore = { [key: string]: XnftPreference };
 /////////////////////////////////////////////////////////////////////////////////
 
 export type BlockchainKeyringJson = {
-  hdKeyring: HdKeyringJson;
+  hdKeyring?: HdKeyringJson;
   importedKeyring: KeyringJson;
   ledgerKeyring: LedgerKeyringJson;
   activeWallet: string;

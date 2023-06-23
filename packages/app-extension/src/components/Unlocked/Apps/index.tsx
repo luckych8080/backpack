@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Blockchain, XNFT_GG_LINK } from "@coral-xyz/common";
 import {
   EmptyState,
@@ -104,7 +105,6 @@ function PluginGrid() {
             !_isAggregateWallets ? (
               <_BalancesTableHead
                 blockchain={wallet.blockchain}
-                wallet={wallet}
                 showContent
                 setShowContent={() => {}}
               />
@@ -134,7 +134,6 @@ function PluginGrid() {
           !_isAggregateWallets ? (
             <_BalancesTableHead
               blockchain={activeWallet.blockchain}
-              wallet={activeWallet}
               showContent
               setShowContent={() => {}}
             />
@@ -169,9 +168,7 @@ function WalletXnftGrid({
     [wallet]
   );
 
-  return !isLoading && plugins.length === 0 ? (
-    <></>
-  ) : (
+  return !isLoading && plugins.length === 0 ? null : (
     <div
       style={{
         marginLeft: "12px",
@@ -183,22 +180,16 @@ function WalletXnftGrid({
       }}
     >
       <BalancesTableProvider>
-        <_WalletXnftGrid
-          isLoading={isLoading}
-          plugins={plugins}
-          wallet={wallet}
-        />
+        <_WalletXnftGrid isLoading={isLoading} plugins={plugins} />
       </BalancesTableProvider>
     </div>
   );
 }
 
 function _WalletXnftGrid({
-  wallet,
   isLoading,
   plugins,
 }: {
-  wallet: { publicKey: string; name: string; blockchain: Blockchain };
   isLoading: boolean;
   plugins: Array<any>;
 }) {
@@ -212,10 +203,10 @@ function _WalletXnftGrid({
   const iconsPerRow = isXs ? 4 : 6;
   return (
     <>
-      <BalancesTableHead wallet={wallet} />
-      {showContent ? <div
-        style={{
-            paddingTop: "8px",
+      {showContent ? (
+        <div
+          style={{
+            paddingTop: "18px",
             paddingBottom: "18px",
             paddingLeft: "10px",
             paddingRight: "10px",
@@ -224,39 +215,63 @@ function _WalletXnftGrid({
             borderBottomRightRadius: "10px",
           }}
         >
-        <Grid container>
-          {isLoading
-              ? Array.from(Array(iconsPerRow).keys()).map((_, idx) => {
-                  return (
-                    <Grid
-                      item
-                      key={idx}
-                      xs={isXs ? 3 : 2}
-                      style={{
-                        marginTop: idx >= iconsPerRow ? "24px" : 0,
-                      }}
-                    >
-                      <SkeletonAppIcon />
-                    </Grid>
-                  );
-                })
-              : plugins.map((p: any, idx: number) => {
+          <Grid container>
+            {isLoading ? (
+              Array.from(Array(iconsPerRow).keys()).map((_, idx) => {
+                return (
+                  <Grid
+                    item
+                    key={idx}
+                    xs={isXs ? 3 : 2}
+                    style={{
+                      marginTop: idx >= iconsPerRow ? "24px" : 0,
+                    }}
+                  >
+                    <SkeletonAppIcon />
+                  </Grid>
+                );
+              })
+            ) : (
+              <>
+                <LibraryLink isXs={isXs} />
+                {plugins.map((p: any, idx: number) => {
                   return (
                     <Grid
                       item
                       key={p.url}
                       xs={isXs ? 3 : 2}
                       style={{
-                        marginTop: idx >= iconsPerRow ? "24px" : 0,
+                        marginTop: idx + 1 >= iconsPerRow ? "24px" : 0,
                       }}
                     >
                       <PluginIcon plugin={p} onClick={() => onClickPlugin(p)} />
                     </Grid>
                   );
                 })}
-        </Grid>
-      </div> : null}
+              </>
+            )}
+          </Grid>
+        </div>
+      ) : null}
     </>
+  );
+}
+
+function LibraryLink({ isXs }: { isXs: boolean }) {
+  const theme = useCustomTheme();
+
+  return (
+    <Grid item key="xnft-library" xs={isXs ? 3 : 2}>
+      <AppIcon
+        title={"xNFT.gg \u2197"}
+        iconStyle={{
+          padding: 14,
+          background: theme.custom.colorsInverted.nav,
+        }}
+        iconUrl={`${XNFT_GG_LINK}/logo.svg`}
+        onClick={() => window.open(XNFT_GG_LINK, "_blank")}
+      />
+    </Grid>
   );
 }
 
@@ -268,10 +283,12 @@ function PluginIcon({ plugin, onClick }: any) {
 
 function AppIcon({
   title,
+  iconStyle,
   iconUrl,
   onClick,
 }: {
   title: string;
+  iconStyle?: CSSProperties;
   iconUrl: string;
   onClick: () => void;
 }) {
@@ -302,6 +319,7 @@ function AppIcon({
           style={{
             width: ICON_WIDTH,
             height: ICON_WIDTH,
+            ...(iconStyle ?? {}),
           }}
         />
       </Button>

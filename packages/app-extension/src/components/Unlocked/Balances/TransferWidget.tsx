@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import type { Blockchain } from "@coral-xyz/common";
 import {
   ETH_NATIVE_MINT,
@@ -6,7 +6,11 @@ import {
   STRIPE_ENABLED,
 } from "@coral-xyz/common";
 import { Dollar } from "@coral-xyz/react-common";
-import { SwapProvider, useFeatureGates } from "@coral-xyz/recoil";
+import {
+  SwapProvider,
+  useFeatureGates,
+  useSwapContext,
+} from "@coral-xyz/recoil";
 import { useCustomTheme } from "@coral-xyz/themes";
 import { ArrowDownward, ArrowUpward, SwapHoriz } from "@mui/icons-material";
 import { Typography } from "@mui/material";
@@ -14,11 +18,10 @@ import { Typography } from "@mui/material";
 import { useNavigation } from "../../common/Layout/NavStack";
 import type { Token } from "../../common/TokenTable";
 import { SearchableTokenTables } from "../../common/TokenTable";
-import { Swap, SwapSelectToken } from "../../Unlocked/Swap";
+import { Swap, SwapSelectTokenInDrawer } from "../../Unlocked/Swap";
 
 import {
   AddressSelectorLoader,
-  NftAddressSelector,
   TokenAddressSelector,
 } from "./TokensWidget/AddressSelector";
 import { Deposit } from "./TokensWidget/Deposit";
@@ -83,48 +86,63 @@ function SwapButton({
     routes = [],
   }: {
     routes?: React.ComponentProps<typeof TransferButton>["routes"];
-  }) => (
-    <TransferButton
-      label="Swap"
-      labelComponent={
-        <SwapHoriz
-          style={{
-            color: theme.custom.colors.fontColor,
-            display: "flex",
-            marginLeft: "auto",
-            marginRight: "auto",
-          }}
-        />
-      }
-      routes={routes}
-      disabled={routes.length === 0}
-    />
-  );
-
-  // Wrap in Suspense so it doesn't block if Jupiter is slow or down.
-  return (
-    <React.Suspense fallback={<SwapButtonComponent />}>
-      <SwapProvider tokenAddress={address}>
-        <SwapButtonComponent
-          routes={[
-            {
-              name: "swap",
-              component: (props: any) => <Swap {...props} />,
-              title: `Swap`,
-              props: {
-                blockchain,
-              },
-            },
-            {
-              title: `Select Token`,
-              name: "select-token",
-              component: (props: any) => <SwapSelectToken {...props} />,
-            },
-          ]}
-        />
+  }) => {
+    return (
+      <TransferButton
+        label="Swap"
+        labelComponent={
+          <SwapHoriz
+            style={{
+              color: theme.custom.colors.fontColor,
+              display: "flex",
+              marginLeft: "auto",
+              marginRight: "auto",
+            }}
+          />
+        }
+        routes={routes}
+        disabled={routes.length === 0}
+      />
+    );
+  };
+  const SwapButtonIfTheTokenIsSwappable = () => {
+    return (
+      <SwapProvider tokenAddress={address} isInDrawer>
+        <_SwapButtonIfTheTokenIsSwappable />
       </SwapProvider>
-    </React.Suspense>
-  );
+    );
+  };
+
+  const _SwapButtonIfTheTokenIsSwappable = () => {
+    const { canSwap, isLoading } = useSwapContext();
+    if (isLoading) {
+      return <SwapButtonComponent />;
+    }
+    return canSwap ? (
+      <SwapButtonComponent
+        routes={[
+          {
+            name: "swap",
+            component: (props: any) => (
+              <Swap {...props} tokenAddress={address} />
+            ),
+            title: `Swap`,
+            props: {
+              blockchain,
+            },
+          },
+          {
+            title: `Select Token`,
+            name: "select-token",
+            component: (props: any) => <SwapSelectTokenInDrawer {...props} />,
+          },
+        ]}
+      />
+    ) : // There are no Jupiter Routes for this token, so hide the button
+    null;
+  };
+
+  return <SwapButtonIfTheTokenIsSwappable />;
 }
 
 function SendButton({
@@ -341,7 +359,7 @@ function SendToken() {
   const { push } = useNavigation();
 
   const onClickRow = (blockchain: Blockchain, token: Token) => {
-    push("select-user", { blockchain, token });
+    push("select-user", { blockchain, token, name: token.ticker });
   };
 
   return (

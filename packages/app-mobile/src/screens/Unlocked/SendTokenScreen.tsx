@@ -4,19 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Platform,
   Pressable,
-  Image,
   View,
   Keyboard,
   KeyboardAvoidingView,
+  Image,
   Text,
 } from "react-native";
 
-import { Token } from "@@types/types";
 import {
   Blockchain,
   ETH_NATIVE_MINT,
   SOL_NATIVE_MINT,
-  walletAddressDisplay,
+  formatWalletAddress,
   toDisplayBalance,
   NATIVE_ACCOUNT_RENT_EXEMPTION_LAMPORTS,
 } from "@coral-xyz/common";
@@ -37,18 +36,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SendEthereumConfirmationCard } from "~components/BottomDrawerEthereumConfirmation";
 import { SendSolanaConfirmationCard } from "~components/BottomDrawerSolanaConfirmation";
-import { BottomSheetModal } from "~components/BottomSheetModal";
-import { ImageSvg } from "~components/ImageSvg";
+import { BetterBottomSheet } from "~components/BottomSheetModal";
 import { UnstyledTokenTextInput } from "~components/TokenInputField";
+import { UserAvatar } from "~components/UserAvatar";
 import { Screen } from "~components/index";
 import { useTheme as useCustomTheme } from "~hooks/useTheme";
-import type { UnlockedNavigatorStackParamList } from "~navigation/UnlockedNavigator";
+import type { UnlockedNavigatorStackParamList } from "~navigation/types";
 
 import { SendTokenSelectUserScreen } from "./SendTokenScreen2";
 import { SearchableTokenTables } from "./components/Balances";
 
+import { Token } from "~types/types";
+
 export function SendTokenSelectRecipientScreen({
   route,
+  navigation,
 }: StackScreenProps<
   UnlockedNavigatorStackParamList,
   "SendTokenModal"
@@ -83,7 +85,38 @@ export function SendTokenSelectRecipientScreen({
           inputContent={address}
           setInputContent={setAddress}
           hasInputError={hasInputError}
-          normalizedAddress={destinationAddress}
+          // selected from the list of available users
+          onSelectUserResult={({ user, address }) => {
+            // this should error out probably
+            if (!address) {
+              return;
+            }
+
+            navigation.navigate("SendTokenConfirm", {
+              blockchain,
+              token,
+              to: {
+                address,
+                username: user.username,
+                walletName: user.walletName,
+                image: user.image,
+                uuid: user.uuid,
+              },
+            });
+          }}
+          // used the text input to enter in a publickey or username
+          onPressNext={({ user }) => {
+            navigation.navigate("SendTokenConfirm", {
+              blockchain,
+              token,
+              to: {
+                address: destinationAddress,
+                username: user?.username,
+                image: user?.image,
+                uuid: user?.uuid,
+              },
+            });
+          }}
         />
       </Screen>
     </KeyboardAvoidingView>
@@ -133,7 +166,7 @@ function CopyablePublicKey({ address }): JSX.Element {
           backgroundColor: theme.custom.colors.bg2,
         }}
       >
-        {walletAddressDisplay(address)}
+        {formatWalletAddress(address)}
       </Text>
     </Pressable>
   );
@@ -153,7 +186,7 @@ function AvatarHeader({
   const theme = useCustomTheme();
   return (
     <YStack ai="center">
-      <ImageSvg uri={image} width={80} height={80} />
+      <UserAvatar size={80} uri={image} />
       {walletName || username ? (
         <Text
           style={{
@@ -257,7 +290,6 @@ export function SendTokenConfirmScreen({
   const { address, walletName, image, username } = to;
   const ethereumCtx = useEthereumCtx();
 
-  const [modalIndex, setModalIndex] = useState(0);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [feeOffset, setFeeOffset] = useState<BigNumber>(BigNumber.from(0));
   const [amount, setAmount] = useState<BigNumber | null>(null);
@@ -321,10 +353,17 @@ export function SendTokenConfirmScreen({
     []
   );
 
-  const SendConfirmComponent = {
+  const SendConfirmation = {
     [Blockchain.SOLANA]: SendSolanaConfirmationCard,
     [Blockchain.ETHEREUM]: SendEthereumConfirmationCard,
   }[blockchain];
+
+  const destination = {
+    address,
+    walletName,
+    username,
+    image,
+  };
 
   return (
     <>
@@ -364,26 +403,25 @@ export function SendTokenConfirmScreen({
         </YStack>
         {getButton(isSendDisabled, isAmountError)}
       </Screen>
-      <BottomSheetModal
-        snapPoints={[500, 420]}
+      <BetterBottomSheet
         isVisible={isModalVisible}
-        index={modalIndex}
         resetVisibility={() => {
           setIsModalVisible(() => false);
         }}
       >
-        <SendConfirmComponent
+        <SendConfirmation
+          type="token"
           navigation={navigation}
           token={token}
-          destinationAddress={address}
           amount={amount!}
-          onCompleteStep={(step: string) => {
-            if (step !== "confirm") {
-              setModalIndex(() => 1);
-            }
+          destination={destination}
+          onCompleteStep={(_step: string) => {
+            // if (step !== "confirm") {
+            //   setModalIndex(() => 1);
+            // }
           }}
         />
-      </BottomSheetModal>
+      </BetterBottomSheet>
     </>
   );
 }

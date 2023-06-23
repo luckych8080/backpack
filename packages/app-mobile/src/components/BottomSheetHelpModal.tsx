@@ -1,39 +1,34 @@
-import type { BottomSheetBackdropProps } from "@gorhom/bottom-sheet";
-
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { FlatList, Pressable, StyleSheet } from "react-native";
+import { useState } from "react";
+import { View, Alert, FlatList, Pressable, StyleSheet } from "react-native";
 
 import * as Linking from "expo-linking";
 
-import { Margin, RoundedContainerGroup } from "~components/index";
 import {
   BACKPACK_LINK,
   DISCORD_INVITE_LINK,
   TWITTER_LINK,
 } from "@coral-xyz/common";
 import { MaterialIcons } from "@expo/vector-icons";
-import { BottomSheetBackdrop, BottomSheetModal } from "@gorhom/bottom-sheet";
+
+import { BetterBottomSheet } from "~components/BottomSheetModal";
+import { DiscordIcon, TwitterIcon, IconMenu } from "~components/Icon";
+import { FullScreenLoading } from "~components/index";
+import { useTheme } from "~hooks/useTheme";
+import { useSession } from "~lib/SessionProvider";
 import {
+  IconPushDetail,
   IconLaunchDetail,
   SettingsRow,
 } from "~screens/Unlocked/Settings/components/SettingsRow";
-
-import { DiscordIcon, TwitterIcon } from "~components/Icon";
-import { useTheme } from "~hooks/useTheme";
 
 export function HelpModalMenuButton({
   onPress,
 }: {
   onPress: () => void;
 }): JSX.Element {
-  const theme = useTheme();
   return (
     <Pressable onPress={onPress} style={styles.button}>
-      <MaterialIcons
-        name="menu"
-        size={32}
-        color={theme.custom.colors.fontColor}
-      />
+      <IconMenu size={32} />
     </Pressable>
   );
 }
@@ -50,45 +45,17 @@ const styles = StyleSheet.create({
 export function BottomSheetHelpModal({
   isVisible,
   resetVisibility,
-  extraOptions = [],
+  showResetButton,
 }: {
   isVisible: boolean;
   resetVisibility: () => void;
-  extraOptions?: any[];
+  showResetButton?: boolean;
 }): JSX.Element {
   const theme = useTheme();
-  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-
-  useEffect(() => {
-    function handle() {
-      if (isVisible) {
-        bottomSheetModalRef.current?.present();
-        // Resets visibility since dismissing it is built-in
-        resetVisibility();
-      }
-    }
-
-    handle();
-  }, [isVisible, resetVisibility]);
-
-  const modalHeight = extraOptions.length
-    ? 240 + extraOptions.length * 48
-    : 240;
-  const snapPoints = useMemo(() => [modalHeight], [modalHeight]);
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop
-        {...props}
-        pressBehavior="close"
-        appearsOnIndex={0}
-        disappearsOnIndex={-1}
-      />
-    ),
-    []
-  );
+  const [loading, setLoading] = useState(false);
+  const { reset } = useSession();
 
   const menuOptions = [
-    ...extraOptions,
     {
       icon: (
         <MaterialIcons
@@ -115,38 +82,76 @@ export function BottomSheetHelpModal({
     },
   ];
 
+  if (showResetButton) {
+    menuOptions.unshift({
+      icon: (
+        <MaterialIcons
+          name="people"
+          size={24}
+          color={theme.custom.colors.secondary}
+        />
+      ),
+      label: "Reset Backpack",
+      detailIcon: <IconPushDetail />,
+      onPress: async () => {
+        Alert.alert(
+          "Are your sure?",
+          "This will wipe all data that's been stored in the app",
+          [
+            {
+              text: "Yes",
+              onPress: () => {
+                setLoading(true);
+                reset();
+              },
+            },
+            {
+              text: "No",
+              onPress: () => {},
+            },
+          ]
+        );
+      },
+    });
+  }
+
+  if (loading) {
+    return (
+      <View
+        style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0 }}
+      >
+        <FullScreenLoading label="Resetting Backpack..." />
+      </View>
+    );
+  }
+
   return (
-    <BottomSheetModal
-      ref={bottomSheetModalRef}
-      index={0}
-      snapPoints={snapPoints}
-      backdropComponent={renderBackdrop}
-      contentHeight={modalHeight}
-      handleStyle={{
-        marginBottom: 12,
-      }}
-      backgroundStyle={{
-        backgroundColor: theme.custom.colors.background,
-      }}
-    >
-      <Margin horizontal={16}>
-        <RoundedContainerGroup>
-          <FlatList
-            data={menuOptions}
-            scrollEnabled={false}
-            renderItem={({ item }) => {
-              return (
-                <SettingsRow
-                  onPress={item.onPress}
-                  icon={item.icon}
-                  detailIcon={item.detailIcon}
-                  label={item.label}
-                />
-              );
-            }}
-          />
-        </RoundedContainerGroup>
-      </Margin>
-    </BottomSheetModal>
+    <BetterBottomSheet isVisible={isVisible} resetVisibility={resetVisibility}>
+      <Content menuOptions={menuOptions} />
+    </BetterBottomSheet>
+  );
+}
+
+type ListItem = any;
+function Content({ menuOptions }: { menuOptions: any[] }): JSX.Element {
+  const keyExtractor = (item: ListItem) => item.label;
+  const renderItem = ({ item }: { item: ListItem }) => {
+    return (
+      <SettingsRow
+        onPress={item.onPress}
+        icon={item.icon}
+        detailIcon={item.detailIcon}
+        label={item.label}
+      />
+    );
+  };
+
+  return (
+    <FlatList
+      data={menuOptions}
+      scrollEnabled={false}
+      keyExtractor={keyExtractor}
+      renderItem={renderItem}
+    />
   );
 }

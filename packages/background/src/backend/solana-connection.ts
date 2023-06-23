@@ -2,7 +2,7 @@ import type {
   CustomSplTokenAccountsResponse,
   EventEmitter,
   Notification,
-  SolanaTokenAccountWithKeyString,
+  SolanaTokenAccountWithKeyAndProgramIdString,
   SplNftMetadataString,
   TokenMetadataString,
 } from "@coral-xyz/common";
@@ -50,13 +50,14 @@ import type {
   GetProgramAccountsConfig,
   GetProgramAccountsFilter,
   GetSupplyConfig,
+  GetTransactionConfig,
+  GetVersionedTransactionConfig,
   InflationGovernor,
   InflationReward,
   LeaderSchedule,
   LogsCallback,
   LogsFilter,
   Message,
-  MessageV0,
   NonceAccount,
   ParsedAccountData,
   ParsedConfirmedTransaction,
@@ -96,8 +97,8 @@ import type { CachedValue } from "../types";
 
 const logger = getLogger("solana-connection-backend");
 
-export const LOAD_SPL_TOKENS_REFRESH_INTERVAL = 10 * 1000;
-export const RECENT_BLOCKHASH_REFRESH_INTERVAL = 10 * 1000;
+const LOAD_SPL_TOKENS_REFRESH_INTERVAL = 10 * 1000;
+const RECENT_BLOCKHASH_REFRESH_INTERVAL = 10 * 1000;
 
 // Time until cached values expire. This is arbitrary.
 const CACHE_EXPIRY = 15000;
@@ -369,7 +370,7 @@ export class SolanaConnectionBackend {
   }
 
   async customSplMetadataUri(
-    tokens: Array<SolanaTokenAccountWithKeyString>,
+    tokens: Array<SolanaTokenAccountWithKeyAndProgramIdString>,
     tokenMetadata: Array<TokenMetadataString | null>
   ): Promise<Array<[string, SplNftMetadataString]>> {
     const key = JSON.stringify({
@@ -461,18 +462,16 @@ export class SolanaConnectionBackend {
 
   async confirmTransaction(
     strategy: BlockheightBasedTransactionConfirmationStrategy,
-    commitment?: Commitment
+    commitmentOrConfig?: GetVersionedTransactionConfig | Finality
   ): Promise<RpcResponseAndContext<SignatureResult>> {
     const tx = await confirmTransaction(
       this.connection!,
       strategy.signature,
-      commitment === "confirmed" || commitment === "finalized"
-        ? commitment
-        : "confirmed"
+      buildVersionedTransactionConfig(commitmentOrConfig)
     );
     return {
       context: {
-        slot: tx.slot,
+        slot: tx!.slot,
       },
       value: {
         err: null,
@@ -528,22 +527,22 @@ export class SolanaConnectionBackend {
 
   async getParsedTransactions(
     signatures: TransactionSignature[],
-    commitment?: Finality
-  ): Promise<(ParsedConfirmedTransaction | null)[]> {
+    commitmentOrConfig?: GetVersionedTransactionConfig | Finality
+  ): ReturnType<Connection["getParsedTransactions"]> {
     return await this.connection!.getParsedTransactions(
       signatures,
-      commitment ?? "confirmed"
+      buildVersionedTransactionConfig(commitmentOrConfig)
     );
   }
 
   async getParsedTransaction(
     signature: TransactionSignature,
-    commitment?: Finality
-  ): Promise<ParsedConfirmedTransaction | null> {
+    commitmentOrConfig?: GetVersionedTransactionConfig | Finality
+  ): ReturnType<Connection["getParsedTransaction"]> {
     const conn = new Connection(this.url!); // Unhooked connection.
     return await conn.getParsedTransaction(
       signature,
-      commitment ?? "confirmed"
+      buildVersionedTransactionConfig(commitmentOrConfig)
     );
   }
 
@@ -1040,3 +1039,18 @@ export class SolanaConnectionBackend {
     throw new Error("not implemented");
   }
 }
+
+/**
+ * Accepts undefined, a commitment string, or a Versioned Transaction
+ * Config object and returns a Versioned Transaction Config object.
+ */
+const buildVersionedTransactionConfig = (
+  commitmentOrConfig?: Finality | GetVersionedTransactionConfig
+): GetVersionedTransactionConfig =>
+  typeof commitmentOrConfig === "string" || !commitmentOrConfig
+    ? {
+        commitment:
+          commitmentOrConfig === "finalized" ? "finalized" : "confirmed",
+        maxSupportedTransactionVersion: 0, // required for versioned tx support
+      }
+    : commitmentOrConfig;
